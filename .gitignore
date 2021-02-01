@@ -1,0 +1,16 @@
+*.ex
+tmp_build_dir/
+*.eps
+plt*
+plt*/
+chk*/
+results*/
+*.ppt*
+Backtrace*
+ref*
+*lev*
+err*
+err*/
+Outputs*
+Outputs*/*
+*.visit
