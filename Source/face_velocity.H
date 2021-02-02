@@ -4,6 +4,7 @@
 #include <AMReX_Geometry.H>
 #include <AMReX_FArrayBox.H>
 #include <AMReX_REAL.H>
+#include <fctconstants.H>
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
@@ -34,30 +35,34 @@ void get_face_velocity_psi(amrex::Box const& bx,
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
-void get_face_velocity_x(int i, int j, int k,
+void get_face_velocity_x_dt(int i, int j, int k,
                          amrex::Array4<amrex::Real> const& vx,
-                         amrex::Array4<amrex::Real> const& psi,
-                         amrex::Real dy)
+                         amrex::Array4<amrex::Real> const& fab)
 {
-    vx(i,j,k) = -( (psi(i,j+1,0)+psi(i-1,j+1,0)) - (psi(i,j-1,0)+psi(i-1,j-1,0)) ) * (0.25/dy);
+    vx(i,j,k) = half*( ( sqrt(gamma*fab(i-1,j,k,pre)/fab(i-1,j,k,ro)) + fabs(fab(i-1,j,k,rou)/fab(i-1,j,k,ro)) ) 
+              + ( sqrt(gamma*fab(i,j,k,pre)/fab(i,j,k,ro)) + fabs(fab(i,j,k,rou)/fab(i,j,k,ro)) ) );
 }
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
-void get_face_velocity_y(int i, int j, int k,
+void get_face_velocity_y_dt(int i, int j, int k,
                          amrex::Array4<amrex::Real> const& vy,
-                         amrex::Array4<amrex::Real> const& psi,
-                         amrex::Real dx)
+                         amrex::Array4<amrex::Real> const& fab)
 {
-    vy(i,j,k) =  ( (psi(i+1,j,0)+psi(i+1,j-1,0)) - (psi(i-1,j,0)+psi(i-1,j-1,0)) ) * (0.25/dx);
+    vy(i,j,k) = half*( ( sqrt(gamma*fab(i,j-1,k,pre)/fab(i,j-1,k,ro)) + fabs(fab(i,j-1,k,rov)/fab(i,j-1,k,ro)) ) 
+              + ( sqrt(gamma*fab(i,j,k,pre)/fab(i,j,k,ro)) + fabs(fab(i,j,k,rov)/fab(i,j,k,ro)) ) );
 }
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
-void get_face_velocity_z(int i, int j, int k,
-                         amrex::Array4<amrex::Real> const& vz)
+void get_face_velocity_z_dt(int i, int j, int k,
+                         amrex::Array4<amrex::Real> const& vz,
+                         amrex::Array4<amrex::Real> const& fab)
 {
-    vz(i,j,k) =  0.0; 
+#if AMREX_SPACEDIM==3
+    vz(i,j,k) = half*( ( sqrt(gamma*fab(i,j,k-1,pre)/fab(i,j,k-1,ro)) + fabs(fab(i,j,k-1,row)/fab(i,j,k-1,ro)) ) 
+              + ( sqrt(gamma*fab(i,j,k,pre)/fab(i,j,k,ro)) + fabs(fab(i,j,k,row)/fab(i,j,k,ro)) ) );
+#endif
 }
 
 #endif
