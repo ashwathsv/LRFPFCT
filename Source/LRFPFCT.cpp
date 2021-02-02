@@ -424,8 +424,7 @@ void LRFPFCT::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
         amrex::launch(box,
         [=] AMREX_GPU_DEVICE (Box const& tbx)
         {
-            initdata(tbx, fab, problo, probhi, dx, probtag, ro2, ro1, p2, p1,
-                     u2, u1, v2, v1, xcm, ycm, rad_bw);
+            initdata(tbx, fab, problo, probhi, dx, prob_tag, ro2, ro1, p2, p1, u2, u1, v2, v1, xcm, ycm, rad_bw);
         });
     }
     
@@ -551,11 +550,12 @@ if(lev < lev_allow){
 	        const Box& bx  = mfi.tilebox();
             const auto statefab = state.array(mfi);
             const auto tagfab  = tags.array(mfi);
-	    
+	   		Real tag_frac = tagfrac;
+ 
             amrex::launch(bx,
             [=] AMREX_GPU_DEVICE (Box const& tbx)
             {
-                state_error(tbx, tagfab, statefab, maxgradpx, maxgradpy, dx, tagfrac, tagval);
+                state_error(tbx, tagfab, statefab, maxgradpx, maxgradpy, dx, tag_frac, tagval);
             });
 	}
     }

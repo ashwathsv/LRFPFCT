@@ -16,7 +16,7 @@ struct AmrCoreFill
                      const int /*orig_comp*/) const
         {
             // do something for external Dirichlet (BCType::ext_dir)
-            amrex::Print() << "entered AmrCoreFill{}" << "\n";
+            // amrex::Print() << "entered AmrCoreFill{}" << "\n";
         }
 };
 
