@@ -65,6 +65,8 @@ public:
     void AdvancePhiAllLevels (amrex::Real time, amrex::Real dt_lev, int iteration);
 
     // Define the advection velocity as the curl of a scalar field
+    void DefineVelocityAtLevelDt (int lev, amrex::Real time);
+
     void DefineVelocityAtLevel (int lev, amrex::Real time);
 
     void DefineVelocityAllLevels (amrex::Real time);

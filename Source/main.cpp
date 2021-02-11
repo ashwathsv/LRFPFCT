@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
 	LRFPFCT_adv.InitData();
 
         // advance solution to final time
-	// LRFPFCT_adv.Evolve();
+	LRFPFCT_adv.Evolve();
 	
         // wallclock time
 	Real end_total = amrex::second() - strt_total;

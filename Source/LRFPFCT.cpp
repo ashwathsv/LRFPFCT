@@ -171,64 +171,6 @@ LRFPFCT::ReadParameters ()
 
 }
 
-// advance solution to final time
-void
-LRFPFCT::Evolve ()
-{
-    Real cur_time = t_new[0];
-    int last_plot_file_step = 0;
-
-    for (int step = istep[0]; step < max_step && cur_time < stop_time; ++step)
-    {
-        amrex::Print() << "\nCoarse STEP " << step+1 << " starts ..." << std::endl;
-
-        ComputeDt();
-
-        int lev = 0;
-        int iteration = 1;
-        if (do_subcycle)
-            timeStepWithSubcycling(lev, cur_time, iteration);
-        else
-            timeStepNoSubcycling(cur_time, iteration);
-
-        cur_time += dt[0];
-
-        // sum phi to check conservation
-        Real sum_phi = phi_new[0].sum();
-
-        amrex::Print() << "Coarse STEP " << step+1 << " ends." << " TIME = " << cur_time
-                       << " DT = " << dt[0] << " Sum(Phi) = " << sum_phi << std::endl;
-
-        // sync up time
-        for (lev = 0; lev <= finest_level; ++lev) {
-            t_new[lev] = cur_time;
-        }
-
-        if (plot_int > 0 && (step+1) % plot_int == 0) {
-            last_plot_file_step = step+1;
-            WritePlotFile();
-        }
-
-        if (chk_int > 0 && (step+1) % chk_int == 0) {
-            WriteCheckpointFile();
-        }
-
-#ifdef AMREX_MEM_PROFILING
-        {
-            std::ostringstream ss;
-            ss << "[STEP " << step+1 << "]";
-            MemProfiler::report(ss.str());
-        }
-#endif
-
-        if (cur_time >= stop_time - 1.e-6*dt[0]) break;
-    }
-
-    if (plot_int > 0 && istep[0] > last_plot_file_step) {
-        WritePlotFile();
-    }
-}
-
 // initializes multilevel data
 void
 LRFPFCT::InitData ()
@@ -432,33 +374,15 @@ void LRFPFCT::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     phi_new[lev].FillBoundary();
     phi_new[lev].FillBoundary(Geom(lev).periodicity());
 
-    // for (MFIter mfi(state,TilingIfNotGPU()); mfi.isValid(); ++mfi)
-    // {
-    //     Array4<Real> fab = state[mfi].array();
-    //     const Box& box = mfi.tilebox();
-    //     const auto lo = lbound(box);
-    //     const auto hi = ubound(box);
-    //     for(int k = lo.z; k <= hi.z; ++k){
-    //         for (int j = lo.y-4; j <= hi.y+4; ++j){
-    //             for(int i = lo.x-4; i <= hi.x+4; ++i){
-    //                 if(i < lo.x || i > hi.x || j < lo.y || j > hi.y){
-    //                 Print() << "i= " << i << ", j " << j << ", ro= " << fab(i,j,k,ro) << ", rou= " << fab(i,j,k,rou)
-    //                 << ", rov= " << fab(i,j,k,rov) << ", roE= " << fab(i,j,k,roE) << ", mac= " << fab(i,j,k,mac) << "\n"; 
-    //                 }                   
-    //             }
-    //         }
-    //     }
-
-
-    // }
-
     pmin = pminfrac*phi_new[lev].min(pre);
     romin = rominfrac*phi_new[lev].min(ro);
 
-    if(ParallelDescriptor::MyProc() == 0){
+    // if(ParallelDescriptor::MyProc() == 0){
         Print() << "min(ro)= " << phi_new[lev].min(ro,4) << ", min(pre)= " << phi_new[lev].min(pre,4)
         << ", min(roE)= " << phi_new[lev].min(roE,4) << ", min(mach)= " << phi_new[lev].min(mach,4) << "\n";
-    }
+    // }
+
+    // ParallelDescriptor::Barrier();
 
     if(phi_new[lev].min(ro,4) < 0.0 || phi_new[lev].min(pre,4) < 0.0 || phi_new[lev].min(mach,4) < 0.0 || phi_new[lev].min(roE,4) < 0.0){
         Print() << "Level (after FillPatch) = " << lev << "\n";
@@ -550,8 +474,8 @@ if(lev < lev_allow){
 	        const Box& bx  = mfi.tilebox();
             const auto statefab = state.array(mfi);
             const auto tagfab  = tags.array(mfi);
-	   		Real tag_frac = tagfrac;
- 
+            Real tag_frac = tagfrac;
+	    
             amrex::launch(bx,
             [=] AMREX_GPU_DEVICE (Box const& tbx)
             {
@@ -709,6 +633,130 @@ LRFPFCT::GetData (int lev, Real time, Vector<MultiFab*>& data, Vector<Real>& dat
     }
 }
 
+// advance solution to final time
+void
+LRFPFCT::Evolve ()
+{
+    Real cur_time = t_new[0];
+    int last_plot_file_step = 0;
+
+    for (int step = istep[0]; step < max_step && cur_time < stop_time; ++step)
+    {
+        amrex::Print() << "\nCoarse STEP " << step+1 << " starts ..." << std::endl;
+
+        ComputeDt();
+
+//         int lev = 0;
+//         int iteration = 1;
+//         if (do_subcycle)
+//             timeStepWithSubcycling(lev, cur_time, iteration);
+//         else
+//             timeStepNoSubcycling(cur_time, iteration);
+
+//         cur_time += dt[0];
+
+//         // sum phi to check conservation
+//         Real sum_phi = phi_new[0].sum();
+
+//         amrex::Print() << "Coarse STEP " << step+1 << " ends." << " TIME = " << cur_time
+//                        << " DT = " << dt[0] << " Sum(Phi) = " << sum_phi << std::endl;
+
+//         // sync up time
+//         for (lev = 0; lev <= finest_level; ++lev) {
+//             t_new[lev] = cur_time;
+//         }
+
+//         if (plot_int > 0 && (step+1) % plot_int == 0) {
+//             last_plot_file_step = step+1;
+//             WritePlotFile();
+//         }
+
+//         if (chk_int > 0 && (step+1) % chk_int == 0) {
+//             WriteCheckpointFile();
+//         }
+
+// #ifdef AMREX_MEM_PROFILING
+//         {
+//             std::ostringstream ss;
+//             ss << "[STEP " << step+1 << "]";
+//             MemProfiler::report(ss.str());
+//         }
+// #endif
+
+//         if (cur_time >= stop_time - 1.e-6*dt[0]) break;
+    }
+
+    // if (plot_int > 0 && istep[0] > last_plot_file_step) {
+    //     WritePlotFile();
+    // }
+}
+
+// a wrapper for EstTimeStep
+void
+LRFPFCT::ComputeDt ()
+{
+    Vector<Real> dt_tmp(finest_level+1);
+
+    for (int lev = 0; lev <= finest_level; ++lev)
+    {
+        dt_tmp[lev] = EstTimeStep(lev, t_new[lev]);
+    }
+    ParallelDescriptor::ReduceRealMin(&dt_tmp[0], dt_tmp.size());
+
+    constexpr Real change_max = 1.1;
+    Real dt_0 = dt_tmp[0];
+    int n_factor = 1;
+
+    for (int lev = 0; lev <= finest_level; ++lev) {
+        dt_tmp[lev] = std::min(dt_tmp[lev], change_max*dt[lev]);
+        n_factor *= nsubsteps[lev];
+        dt_0 = std::min(dt_0, n_factor*dt_tmp[lev]);
+    }
+
+    // Limit dt's by the value of stop_time.
+    const Real eps = 1.e-3*dt_0;
+
+    if (t_new[0] + dt_0 > stop_time - eps) {
+        dt_0 = stop_time - t_new[0];
+    }
+
+    dt[0] = dt_0;
+
+    for (int lev = 1; lev <= finest_level; ++lev) {
+        dt[lev] = dt[lev-1] / nsubsteps[lev];
+    }
+    Print() << "dt[0] = " << dt[0] << "\n";
+}
+
+// compute dt from CFL considerations
+Real
+LRFPFCT::EstTimeStep (int lev, Real time)
+{
+    BL_PROFILE("LRFPFCT::EstTimeStep()");
+
+    Real dt_est = std::numeric_limits<Real>::max();
+
+    const Real* dx  =  geom[lev].CellSize();
+
+    if (time == 0.0) {
+       DefineVelocityAtLevelDt(lev,time);
+    } else {
+       Real t_nph_predicted = time + 0.5 * dt[lev];
+       DefineVelocityAtLevelDt(lev,t_nph_predicted);
+    }
+
+    for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
+    {
+        Real est = facevel[lev][idim].norminf(0,0,true);
+        // Print() << "dim= " << idim << ", dx= " << dx[idim] << ", velmax= " << est << "\n";
+        dt_est = amrex::min(dt_est, dx[idim]/est);
+    }
+
+    dt_est *= cfl;
+
+    return dt_est;
+}
+
 
 // Advance a level by dt
 // (includes a recursive call for finer levels)
@@ -829,70 +877,6 @@ LRFPFCT::timeStepNoSubcycling (Real time, int iteration)
         }
     }
 
-}
-
-// a wrapper for EstTimeStep
-void
-LRFPFCT::ComputeDt ()
-{
-    Vector<Real> dt_tmp(finest_level+1);
-
-    for (int lev = 0; lev <= finest_level; ++lev)
-    {
-        dt_tmp[lev] = EstTimeStep(lev, t_new[lev]);
-    }
-    ParallelDescriptor::ReduceRealMin(&dt_tmp[0], dt_tmp.size());
-
-    constexpr Real change_max = 1.1;
-    Real dt_0 = dt_tmp[0];
-    int n_factor = 1;
-
-    for (int lev = 0; lev <= finest_level; ++lev) {
-        dt_tmp[lev] = std::min(dt_tmp[lev], change_max*dt[lev]);
-        n_factor *= nsubsteps[lev];
-        dt_0 = std::min(dt_0, n_factor*dt_tmp[lev]);
-    }
-
-    // Limit dt's by the value of stop_time.
-    const Real eps = 1.e-3*dt_0;
-
-    if (t_new[0] + dt_0 > stop_time - eps) {
-        dt_0 = stop_time - t_new[0];
-    }
-
-    dt[0] = dt_0;
-
-    for (int lev = 1; lev <= finest_level; ++lev) {
-        dt[lev] = dt[lev-1] / nsubsteps[lev];
-    }
-}
-
-// compute dt from CFL considerations
-Real
-LRFPFCT::EstTimeStep (int lev, Real time)
-{
-    BL_PROFILE("LRFPFCT::EstTimeStep()");
-
-    Real dt_est = std::numeric_limits<Real>::max();
-
-    const Real* dx  =  geom[lev].CellSize();
-
-    if (time == 0.0) {
-       DefineVelocityAtLevel(lev,time);
-    } else {
-       Real t_nph_predicted = time + 0.5 * dt[lev];
-       DefineVelocityAtLevel(lev,t_nph_predicted);
-    }
-
-    for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
-    {
-        Real est = facevel[lev][idim].norminf(0,0,true);
-        dt_est = amrex::min(dt_est, dx[idim]/est);
-    }
-
-    dt_est *= cfl;
-
-    return dt_est;
 }
 
 // get plotfile name
