@@ -25,7 +25,7 @@ initdata(amrex::Box const& bx, amrex::Array4<amrex::Real> const& phi,
     const auto lo = lbound(bx);
     const auto hi = ubound(bx);
    
-    int myproc = ParallelDescriptor::MyProc();
+    // int myproc = ParallelDescriptor::MyProc();
     // Print(myproc) << "rank= " << myproc << ", lo= " << lo << ", hi= " << hi << "\n";                   
 
     if(probtag == 1){

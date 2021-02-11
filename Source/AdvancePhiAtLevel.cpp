@@ -7,7 +7,7 @@ using namespace amrex;
 void
 LRFPFCT::AdvancePhiAtLevel (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle*/)
 {
-    constexpr int num_grow = 3;
+    const int num_grow = nghost;
 
     std::swap(phi_old[lev], phi_new[lev]);
 

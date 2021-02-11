@@ -4,7 +4,7 @@
 #include <AMReX_FArrayBox.H>
 #include <AMReX_Geometry.H>
 #include <AMReX_PhysBCFunct.H>
-#include <Kernels.H>
+// #include <Kernels.H>
 
 struct AmrCoreFill
 {
@@ -20,6 +20,7 @@ struct AmrCoreFill
         }
 };
 
+AMREX_FORCE_INLINE
 void outletBC_partialwall (amrex::Box const& bx, amrex::Array4<amrex::Real> const& qn,
                             const int dcomp, const int numcomp,
                             amrex::GeometryData const& geom, const amrex::Real time,
@@ -171,19 +172,20 @@ void outletBC_partialwall (amrex::Box const& bx, amrex::Array4<amrex::Real> cons
 
 
 // Function to fill physical domain boundary (fill ghost cells)
+AMREX_FORCE_INLINE
 void 
 FillDomBoundary (amrex::MultiFab& phi, const amrex::Geometry& geom, const amrex::Vector<amrex::BCRec>& bc, amrex::Real cur_time)
 {
     using namespace amrex;
     // BL_PROFILE_VAR("FillDomainBoundary()", dombndry);
     int myproc = ParallelDescriptor::MyProc();
-    Print(myproc) << "rank= " << myproc << ", entered LRFPFCT::FillDomainBoundary()" << "\n";
+    // Print(myproc) << "rank= " << myproc << ", entered LRFPFCT::FillDomainBoundary()" << "\n";
     if (geom.isAllPeriodic()) return;
     if (phi.nGrow() == 0) return;
 
     AMREX_ALWAYS_ASSERT(phi.ixType().cellCentered());
 
-    Print() << " entered FillDomBoundary() " << "\n";
+    // Print() << " entered FillDomBoundary() " << "\n";
 
 #if !(defined(AMREX_USE_CUDA) && defined(AMREX_USE_GPU_PRAGMA) && defined(AMREX_GPU_PRAGMA_NO_HOST))
     if (Gpu::inLaunchRegion())
