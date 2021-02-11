@@ -15,10 +15,11 @@ LRFPFCT::DefineVelocityAllLevels (Real time)
 void
 LRFPFCT::DefineVelocityAtLevel (int lev, Real time)
 {
-    int myproc = ParallelDescriptor::MyProc();
+    // int myproc = ParallelDescriptor::MyProc();
     // Print(myproc) << "rank= " << myproc << ", reached DefineVelocityAtLevel()" << "\n";
-    const auto dx = geom[lev].CellSizeArray();
+    // const auto dx = geom[lev].CellSizeArray();
     MultiFab& state = phi_new[lev];
+    const int ngrow = nghost;
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -33,40 +34,54 @@ LRFPFCT::DefineVelocityAtLevel (int lev, Real time)
                          nbx[1] = mfi.nodaltilebox(1);,
                          nbx[2] = mfi.nodaltilebox(2););
 
-            AMREX_D_TERM(const Box& ngbxx = amrex::grow(mfi.nodaltilebox(0),1);,
-                         const Box& ngbxy = amrex::grow(mfi.nodaltilebox(1),1);,
-                         const Box& ngbxz = amrex::grow(mfi.nodaltilebox(2),1););
+            AMREX_D_TERM(const Box& ngbxx = amrex::grow(mfi.nodaltilebox(0),ngrow);,
+                         const Box& ngbxy = amrex::grow(mfi.nodaltilebox(1),ngrow);,
+                         const Box& ngbxz = amrex::grow(mfi.nodaltilebox(2),ngrow););
             
-            Print(myproc) << "rank= " << myproc << "lo(x)= " << ngbxx.smallEnd(0) << 
-            " " << ngbxx.smallEnd(1) << ", hi(x)= " << ngbxx.bigEnd(0) << " " << ngbxx.bigEnd(1) << "\n";
+            // Print(myproc) << "rank= " << myproc << "lo(x)= " << ngbxx.smallEnd(0) << 
+            // " " << ngbxx.smallEnd(1) << ", hi(x)= " << ngbxx.bigEnd(0) << " " << ngbxx.bigEnd(1) << "\n";
 
             GpuArray<Array4<Real>, AMREX_SPACEDIM> vel{ AMREX_D_DECL( facevel[lev][0].array(mfi),
                                                                       facevel[lev][1].array(mfi),
                                                                       facevel[lev][2].array(mfi)) };
 
-            // const auto lo = lbound(vel[0]);
-            // const auto hi = ubound(vel[0]);
+            int vx_lox = lbound(vel[0]).x; 
+            int vx_hix = ubound(vel[0]).x;
+
+            int vy_loy = lbound(vel[1]).y;
+            int vy_hiy = ubound(vel[1]).y;
+
+#if AMREX_SPACEDIM==3
+            int vz_loz = lbound(vel[2]).z;
+            int vz_hiz = ubound(vel[2]).z;            
+#endif
             // Print(myproc) << "rank= " << myproc << "lo(velx)= " << lo.x << " " << lo.y << ", hi(velx)= " << hi.x << " " << hi.y << "\n";
             // Print(myproc) << "rank= " << myproc << "lo(vely)= " << lbound(vel[1]) << ", hi(vely)= " << ubound(vel[1]) << "\n";
 
             Array4<Real> fab = state[mfi].array();
             GeometryData geomdata = geom[lev].data();
 
-            // amrex::ParallelFor
-            //     (AMREX_D_DECL(ngbxx,ngbxy,ngbxz),
-            //      AMREX_D_DECL(
-            //          [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            //          {
-            //              get_face_velocity_x(i, j, k, vel[0], fab, dx[0]);
-            //          },
-            //          [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            //          {
-            //              get_face_velocity_y(i, j, k, vel[1], fab, dx[1]);
-            //          },
-            //          [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            //          {
-            //              get_face_velocity_z(i, j, k, vel[2]);
-            //          }));
+            amrex::ParallelFor(AMREX_D_DECL(ngbxx,ngbxy,ngbxz),
+                 AMREX_D_DECL(
+                     [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                     {  get_face_velocity_x(i, j, k, vel[0], fab, vx_lox, vx_hix);  },
+                     [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                     {  get_face_velocity_y(i, j, k, vel[1], fab, vy_loy, vy_hiy);  },
+                     [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                     {  get_face_velocity_z(i, j, k, vel[2], fab, vz_loz, vz_hiz);  }));
+
+            amrex::ParallelFor(ngbxx,
+                     [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                     {  get_face_velocity_x_bc(i, j, k, vel[0], vx_lox, vx_hix);  });
+
+            amrex::ParallelFor(ngbxy,
+                     [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                     {  get_face_velocity_y_bc(i, j, k, vel[1], vy_loy, vy_hiy);  });
+#if AMREX_SPACEDIM==3
+            amrex::ParallelFor(ngbxz,
+                     [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                     {  get_face_velocity_z_bc(i, j, k, vel[2], vz_loz, vz_hiz);  });
+#endif
         }
     }
 }
@@ -76,15 +91,22 @@ LRFPFCT::DefineVelocityAtLevelDt (int lev, Real time)
 {
     int myproc = ParallelDescriptor::MyProc();
     // Print(myproc) << "rank= " << myproc << ", reached DefineVelocityAtLevel()" << "\n";
-    const auto dx = geom[lev].CellSizeArray();
+    // const auto dx = geom[lev].CellSizeArray();
     MultiFab& state = phi_new[lev];
+    const int ngrow = nghost;
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     {
+        FArrayBox tmpfab;
         for (MFIter mfi(state,TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
+            // const Box& iterbx1 = mfi.tilebox();
+            // const Box& iterbx2 = amrex::grow(mfi.tilebox(),ngrow);
+
+            // Print() << "rank= " << myproc << "lo(ibx1)= " << lbound(iterbx1) << ", " << ubound(iterbx1)
+            //         << ", lo(ibx2)= " << lbound(iterbx2) << ", " << ubound(iterbx2) << "\n";
 
         // ======== GET FACE VELOCITY =========
             GpuArray<Box, AMREX_SPACEDIM> nbx;
@@ -107,6 +129,9 @@ LRFPFCT::DefineVelocityAtLevelDt (int lev, Real time)
 
             // Print(myproc) << "rank= " << myproc << "lo(velx)= " << lo.x << " " << lo.y << ", hi(velx)= " << hi.x << " " << hi.y << "\n";
             // Print(myproc) << "rank= " << myproc << "lo(vely)= " << lbound(vel[1]) << ", hi(vely)= " << ubound(vel[1]) << "\n";
+
+            // Print(myproc) << "rank= " << myproc << "lo(velx)= " << vx_lox << 
+            // " " << vx_loy << ", hi(velx)= " << vx_hix << " " << vx_hiy << "\n";
 
             Array4<Real> fab = state[mfi].array();
             GeometryData geomdata = geom[lev].data();

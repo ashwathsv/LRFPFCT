@@ -124,6 +124,7 @@ LRFPFCT::ReadParameters ()
 
     pp.query("cfl", cfl);
     pp.query("do_reflux", do_reflux);
+    pp.query("do_subcycle", do_subcycle);
     pp.query("diff1", diff1);
     }
 
@@ -175,7 +176,7 @@ LRFPFCT::ReadParameters ()
 void
 LRFPFCT::InitData ()
 {
-    int myproc = ParallelDescriptor::MyProc();
+    // int myproc = ParallelDescriptor::MyProc();
     if (restart_chkfile == "") {
         // start simulation from the beginning
         const Real time = 0.0;
@@ -216,11 +217,11 @@ void
 LRFPFCT::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 				    const DistributionMapping& dm)
 {
-    const int ncomp = phi_new[lev-1].nComp();
-    const int nghost = phi_new[lev-1].nGrow();
+    const int numcomp = phi_new[lev-1].nComp();
+    const int numghost = phi_new[lev-1].nGrow();
     
-    phi_new[lev].define(ba, dm, ncomp, nghost);
-    phi_old[lev].define(ba, dm, ncomp, nghost);
+    phi_new[lev].define(ba, dm, numcomp, numghost);
+    phi_old[lev].define(ba, dm, numcomp, numghost);
 
     t_new[lev] = time;
     t_old[lev] = time - 1.e200;
@@ -228,14 +229,14 @@ LRFPFCT::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     // This clears the old MultiFab and allocates the new one
     for (int idim = 0; idim < AMREX_SPACEDIM; idim++)
     {
-	facevel[lev][idim] = MultiFab(amrex::convert(ba,IntVect::TheDimensionVector(idim)), dm, 1, nghost);
+	facevel[lev][idim] = MultiFab(amrex::convert(ba,IntVect::TheDimensionVector(idim)), dm, 1, numghost);
     }
 
     if (lev > 0 && do_reflux) {
-	flux_reg[lev].reset(new FluxRegister(ba, dm, refRatio(lev-1), lev, ncomp));
+	flux_reg[lev].reset(new FluxRegister(ba, dm, refRatio(lev-1), lev, conscomp));
     }
 
-    FillCoarsePatch(lev, time, phi_new[lev], 0, ncomp);
+    FillCoarsePatch(lev, time, phi_new[lev], 0, numcomp);
 
     phi_new[lev].FillBoundary();
     phi_new[lev].FillBoundary(geom[lev].periodicity());
@@ -253,13 +254,13 @@ void
 LRFPFCT::RemakeLevel (int lev, Real time, const BoxArray& ba,
 			 const DistributionMapping& dm)
 {
-    const int ncomp = phi_new[lev].nComp();
-    const int nghost = phi_new[lev].nGrow();
+    const int numcomp = phi_new[lev].nComp();
+    const int numghost = phi_new[lev].nGrow();
 
-    MultiFab new_state(ba, dm, ncomp, nghost);
-    MultiFab old_state(ba, dm, ncomp, nghost);
+    MultiFab new_state(ba, dm, numcomp, numghost);
+    MultiFab old_state(ba, dm, numcomp, numghost);
 
-    FillPatch(lev, time, new_state, 0, ncomp);
+    FillPatch(lev, time, new_state, 0, numcomp);
 
     new_state.FillBoundary();
     new_state.FillBoundary(geom[lev].periodicity());
@@ -282,11 +283,11 @@ LRFPFCT::RemakeLevel (int lev, Real time, const BoxArray& ba,
     // This clears the old MultiFab and allocates the new one
     for (int idim = 0; idim < AMREX_SPACEDIM; idim++)
     {
-	facevel[lev][idim] = MultiFab(amrex::convert(ba,IntVect::TheDimensionVector(idim)), dm, 1, nghost);
+	facevel[lev][idim] = MultiFab(amrex::convert(ba,IntVect::TheDimensionVector(idim)), dm, 1, numghost);
     }
 
     if (lev > 0 && do_reflux) {
-	flux_reg[lev].reset(new FluxRegister(ba, dm, refRatio(lev-1), lev, ncomp));
+	flux_reg[lev].reset(new FluxRegister(ba, dm, refRatio(lev-1), lev, conscomp));
     }    
 }
 
@@ -309,7 +310,7 @@ void LRFPFCT::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     phi_new[lev].define(ba, dm, ncomp, nghost);
     phi_old[lev].define(ba, dm, ncomp, nghost);
 
-    int nc = phi_new[lev].nComp();
+    // int nc = phi_new[lev].nComp();
 
     t_new[lev] = time;
     t_old[lev] = time - 1.e200;
@@ -350,7 +351,7 @@ void LRFPFCT::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     }
 
     if (lev > 0 && do_reflux) {
-	flux_reg[lev].reset(new FluxRegister(ba, dm, refRatio(lev-1), lev, ncomp));
+	flux_reg[lev].reset(new FluxRegister(ba, dm, refRatio(lev-1), lev, conscomp));
     }
 
     MultiFab& state = phi_new[lev];
@@ -646,49 +647,54 @@ LRFPFCT::Evolve ()
 
         ComputeDt();
 
-//         int lev = 0;
-//         int iteration = 1;
-//         if (do_subcycle)
-//             timeStepWithSubcycling(lev, cur_time, iteration);
-//         else
-//             timeStepNoSubcycling(cur_time, iteration);
+        int lev = 0;
+        int iteration = 1;
+        if (do_subcycle)
+            timeStepWithSubcycling(lev, cur_time, iteration);
+        else
+            timeStepNoSubcycling(cur_time, iteration);
 
-//         cur_time += dt[0];
+        cur_time += dt[0];
 
-//         // sum phi to check conservation
-//         Real sum_phi = phi_new[0].sum();
+        // sum phi to check conservation
+        // Real sum_phi = phi_new[0].sum();
 
-//         amrex::Print() << "Coarse STEP " << step+1 << " ends." << " TIME = " << cur_time
-//                        << " DT = " << dt[0] << " Sum(Phi) = " << sum_phi << std::endl;
+        amrex::Print() << "Coarse STEP " << step+1 << " ends." << " TIME = " << cur_time
+                       << " DT = " << dt[0] << " min(pre) = " << phi_new[0].min(pre) << std::endl;
 
-//         // sync up time
-//         for (lev = 0; lev <= finest_level; ++lev) {
-//             t_new[lev] = cur_time;
-//         }
+        // sync up time
+        for (lev = 0; lev <= finest_level; ++lev) {
+            t_new[lev] = cur_time;
+        }
 
-//         if (plot_int > 0 && (step+1) % plot_int == 0) {
-//             last_plot_file_step = step+1;
-//             WritePlotFile();
-//         }
+        if (plot_int > 0 && (step+1) % plot_int == 0) {
+            last_plot_file_step = step+1;
+            WritePlotFile();
+        }
 
-//         if (chk_int > 0 && (step+1) % chk_int == 0) {
-//             WriteCheckpointFile();
-//         }
+        if (chk_int > 0 && (step+1) % chk_int == 0) {
+            WriteCheckpointFile();
+        }
 
-// #ifdef AMREX_MEM_PROFILING
-//         {
-//             std::ostringstream ss;
-//             ss << "[STEP " << step+1 << "]";
-//             MemProfiler::report(ss.str());
-//         }
-// #endif
+#ifdef AMREX_MEM_PROFILING
+        {
+            std::ostringstream ss;
+            ss << "[STEP " << step+1 << "]";
+            MemProfiler::report(ss.str());
+        }
+#endif
 
-//         if (cur_time >= stop_time - 1.e-6*dt[0]) break;
+        if (cur_time >= stop_time - 1.e-6*dt[0]) break;
     }
 
-    // if (plot_int > 0 && istep[0] > last_plot_file_step) {
-    //     WritePlotFile();
-    // }
+    if (chk_int > 0) {
+       WriteCheckpointFile();
+       // WriteErrFile();
+    }
+
+    if(plot_int > 0){
+        WritePlotFile();
+    }
 }
 
 // a wrapper for EstTimeStep
@@ -830,7 +836,7 @@ LRFPFCT::timeStepWithSubcycling (int lev, Real time, int iteration)
         if (do_reflux)
         {
             // update lev based on coarse-fine flux mismatch
-            flux_reg[lev+1]->Reflux(phi_new[lev], 1.0, 0, 0, phi_new[lev].nComp(), geom[lev]);
+            flux_reg[lev+1]->Reflux(phi_new[lev], 1.0, 0, 0, conscomp, geom[lev]);
         }
 
         AverageDownTo(lev); // average lev+1 down to lev
@@ -859,7 +865,6 @@ LRFPFCT::timeStepNoSubcycling (Real time, int iteration)
         }
     }
 
-    DefineVelocityAllLevels(time);
     AdvancePhiAllLevels (time, dt[0], iteration);
 
     // Make sure the coarser levels are consistent with the finer levels
@@ -1084,13 +1089,13 @@ LRFPFCT::ReadCheckpointFile ()
         phi_new[lev].define(grids[lev], dmap[lev], numcomp, numghost);
 
         if (lev > 0 && do_reflux) {
-            flux_reg[lev].reset(new FluxRegister(grids[lev], dmap[lev], refRatio(lev-1), lev, ncomp));
+            flux_reg[lev].reset(new FluxRegister(grids[lev], dmap[lev], refRatio(lev-1), lev, conscomp));
         }
 
         // build face velocity MultiFabs
         for (int idim = 0; idim < AMREX_SPACEDIM; idim++)
         {
-	    facevel[lev][idim] = MultiFab(amrex::convert(ba,IntVect::TheDimensionVector(idim)), dm, 1, 1);
+	    facevel[lev][idim] = MultiFab(amrex::convert(ba,IntVect::TheDimensionVector(idim)), dm, 1, numghost);
         }
     }
 

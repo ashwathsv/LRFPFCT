@@ -4,9 +4,9 @@
 #include <face_velocity.H>
 #include <Prob.H>
 #include <Adv_K.H>
-#include <slope_K.H>
+#include <updatephi_K.H>
 #include <Tagging.H>
-// #include <bc_fill.H>
+#include <bc_fill.H>
 #include <fctconstants.H>
 
 #if (AMREX_SPACEDIM == 2)
