@@ -591,7 +591,8 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
                 S_new.FillBoundary();
                 FillDomBoundary(S_new,geom1,bcs,time);
                 S_new.FillBoundary(geom1.periodicity());
-
+				//FillPatch(lev, time, S_new, 0, ncomp);				
+				//if(lev > 0){	FillCoarsePatch(lev, time, S_new, 0, S_new.nComp());	}
                 AMREX_D_TERM(Sconvx.FillBoundary();,Sconvy.FillBoundary();,Sconvz.FillBoundary());
                 AMREX_D_TERM(Sconvx.FillBoundary(geom1.periodicity());, Sconvy.FillBoundary(geom1.periodicity());,
                      Sconvz.FillBoundary(geom1.periodicity()));
@@ -599,19 +600,23 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
                      FillDomBoundary(Sconvz,geom1,bcs,time));
             }
         } // end omp
+		//Gpu::synchronize();
+		//Gpu::streamSynchronize();
         if(S_new.min(ro,ngrow) < 0.0 || S_new.min(pre,ngrow) < 0.0 || S_new.min(mach,ngrow) < 0.0 || S_new.min(roE,ngrow) < 0.0){
-            Print() << "End of FCT step 2 (after BC), RK = " << rk << "\n";
+            Print() << "End of FCT step 2 (after BC), lev= " << lev << ", RK = " << rk << "\n";
             Print() << "min ro= " << S_new.min(ro,ngrow) << ", min pre= " << S_new.min(pre,ngrow) 
                     << ", min roE= " << S_new.min(roE,ngrow) << ", min mach= " << S_new.min(mach,ngrow) <<"\n";
             WritePlotFile();
             amrex::Error("Pressure/density is negative, aborting...");
         }
-        if(S_new.contains_nan() || Sconvx.contains_nan() || Sconvy.contains_nan()){
-            Print() << "End of FCT step 2, RK = " << rk << "\n";
+      if(S_new.contains_nan() || Sconvx.contains_nan() || Sconvy.contains_nan()){
+            Print() << "End of FCT step 2 (after BC), lev= " << lev << ", RK = " << rk << "\n";
             Print() << "S_new contains nan after BC? " << S_new.contains_nan() 
             << ", " << Sconvx.contains_nan() << ", " << Sconvy.contains_nan() << "\n";
+			Print() << "S_new NaN by component= " << S_new.contains_nan(ro) << S_new.contains_nan(rou) << S_new.contains_nan(rov) << S_new.contains_nan(roE)
+					<< S_new.contains_nan(pre) << S_new.contains_nan(mac) << "\n";
             amrex::Error("NaN value found in conserved variables, aborting...");
-        }        
+      }        
     } // end rk
 
     // increment or decrement the flux registers by area and time-weighted fluxes

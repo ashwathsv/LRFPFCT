@@ -9,14 +9,15 @@
 struct AmrCoreFill
 {
     AMREX_GPU_DEVICE
-    void operator() (const amrex::IntVect& /*iv*/, amrex::Array4<amrex::Real> const& /*data*/,
-                     const int /*dcomp*/, const int /*numcomp*/,
-                     amrex::GeometryData const& /*geom*/, const amrex::Real /*time*/,
-                     const amrex::BCRec* /*bcr*/, const int /*bcomp*/,
-                     const int /*orig_comp*/) const
-        {
-            // do something for external Dirichlet (BCType::ext_dir)
-            // amrex::Print() << "entered AmrCoreFill{}" << "\n";
+    void operator() (const amrex::IntVect& iv, amrex::Array4<amrex::Real> const& data,
+                     const int dcomp, const int numcomp,
+                     amrex::GeometryData const& geom, const amrex::Real time,
+                     const amrex::BCRec* bcr, const int bcomp,
+                     const int orig_comp) const
+        {	using namespace amrex;
+            //do something for external Dirichlet (BCType::ext_dir)
+//             amrex::Print() << "entered AmrCoreFill{}" << "\n";
+//			Print() << "lo(dest)= " << lbound(data) << ", hi(dest)= " << ubound(data) << ", ncomp= " << numcomp << "\n";
         }
 };
 
@@ -188,14 +189,13 @@ FillDomBoundary (amrex::MultiFab& phi, const amrex::Geometry& geom, const amrex:
     // Print() << " entered FillDomBoundary() " << "\n";
 
 #if !(defined(AMREX_USE_CUDA) && defined(AMREX_USE_GPU_PRAGMA) && defined(AMREX_GPU_PRAGMA_NO_HOST))
-    if (Gpu::inLaunchRegion())
+   if (Gpu::inLaunchRegion())
     {
-#endif  
+#endif 
         GpuBndryFuncFab<AmrCoreFill> gpu_bndry_func(AmrCoreFill{});
-        PhysBCFunct<GpuBndryFuncFab<AmrCoreFill> > physbcf
-            (geom, bc, gpu_bndry_func);
-        physbcf(phi, 0, phi.nComp(), phi.nGrowVect(), 0.0, 0);
-        // Print(myproc) << "rank= " << myproc << ", reached GpuBndryFuncFab()" << "\n";
+        PhysBCFunct<GpuBndryFuncFab<AmrCoreFill> > physbcf(geom, bc, gpu_bndry_func);
+        physbcf(phi, 0, phi.nComp(), phi.nGrowVect(), cur_time, 0);
+//        Print(myproc) << "rank= " << myproc << ", reached GpuBndryFuncFab()" << "\n";
 #if !(defined(AMREX_USE_CUDA) && defined(AMREX_USE_GPU_PRAGMA) && defined(AMREX_GPU_PRAGMA_NO_HOST))
     }
     else
