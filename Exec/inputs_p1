@@ -39,15 +39,15 @@ adv.diff1 = 1.0
 
 # Tagging
 adv.tagfrac = 0.2 		#	must be < 1 
-adv.do_subcycle    = 1
+adv.do_subcycle    = 1 
 
 # PLOTFILES
 amr.plot_file  = Outputs_P1L1bc/plt    # root name of plot file
-amr.plot_int   = 40    # number of timesteps between plot files
+amr.plot_int   = 4    # number of timesteps between plot files
 
 # CHECKPOINT
 amr.chk_file = Outputs_P1L1bc/chk      # root name of checkpoint file
-amr.chk_int  = 100      # number of timesteps between checkpoint files
+amr.chk_int  = 200      # number of timesteps between checkpoint files
 #amr.restart  = Outputs_P1L1sc/chk0000200 # restart from this checkpoint file
 
 # INITIAL CONDITIONS

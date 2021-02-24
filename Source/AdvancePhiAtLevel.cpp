@@ -360,14 +360,14 @@ LRFPFCT::AdvancePhiAtLevel (int lev, Real time, Real dt_lev, int /*iteration*/, 
 		Real diffc = diff1;
 		amrex::ParallelFor(ngbxx, conscomp,
 		  [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-		  {  compute_ad_flux_x(i, j, k, n, fltx[0], vel[0], fabold, fabcx, ftx_lox, ftx_hix, ftx_loy, ftx_hiy, coeff*dtdx, diffc); });
+		  {  compute_ad_flux_x(i, j, k, n, fltx[0], vel[0], vel[1], fabold, fabcx, ftx_lox, ftx_hix, ftx_loy, ftx_hiy, coeff*dtdx, coeff*dtdy, diffc); });
 		amrex::ParallelFor(ngbxy, conscomp,
 		  [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-		  {  compute_ad_flux_y(i, j, k, n, fltx[1], vel[1], fabold, fabcy, fty_lox, fty_hix, fty_loy, fty_hiy, coeff*dtdy, diffc); });
+		  {  compute_ad_flux_y(i, j, k, n, fltx[1], vel[0], vel[1], fabold, fabcy, fty_lox, fty_hix, fty_loy, fty_hiy, coeff*dtdx, coeff*dtdy, diffc); });
 #if AMREX_SPACEDIM==3
 		amrex::ParallelFor(ngbxz,
-			[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-			{  compute_ad_flux_z(i, j, k, n, fltx[2], vel[2], fabold, fabcz, ftz_loz, ftz_hiz, coeff*dtdz); });
+		[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+		{  compute_ad_flux_z(i, j, k, n, fltx[2], vel[2], fabold, fabcz, ftz_loz, ftz_hiz, coeff*dtdz); });
 #endif
 		amrex::ParallelFor(ngbxx, conscomp,
 			[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
