@@ -9,14 +9,82 @@
 struct AmrCoreFill
 {
     AMREX_GPU_DEVICE
-    void operator() (const amrex::IntVect& /*iv*/, amrex::Array4<amrex::Real> const& /*data*/,
-                     const int /*dcomp*/, const int /*numcomp*/,
-                     amrex::GeometryData const& /*geom*/, const amrex::Real /*time*/,
-                     const amrex::BCRec* /*bcr*/, const int /*bcomp*/,
-                     const int /*orig_comp*/) const
+    void operator() (const amrex::IntVect& iv, amrex::Array4<amrex::Real> const& data,
+                     const int dcomp, const int numcomp,
+                     amrex::GeometryData const& geom, const amrex::Real time,
+                     const amrex::BCRec* bcr, const int bcomp,
+                     const int orig_comp) const
         {
+            using namespace amrex;
+            const Box& domain = geom.Domain();
+
+            const auto domlo = amrex::lbound(domain);
+            const auto domhi = amrex::ubound(domain);
+
+            const int ilo = domlo.x;
+            const int ihi = domhi.x;
+
+#if AMREX_SPACEDIM >= 2
+            const int jlo = domlo.y;
+            const int jhi = domhi.y;
+
+            const int k = domlo.z;
+#endif
+
+    for (int n = 0; n < numcomp; ++n){
+        Array4<Real> q(data,n);
+        BCRec const& bc = bcr[n];
+        if (iv[0] < ilo) {
+            if (bc.lo(0) == BCType::ext_dir) {
+                // Do nothing.
+            } else if (bc.lo(0) == BCType::foextrap) {
+                q(iv[0],iv[1],k) = q(ilo,iv[1],k);
+            } else if (bc.lo(0) == BCType::reflect_even) {
+                q(iv[0],iv[1],k) =  q(ilo+(ilo-iv[0])-1,iv[1],k);
+            } else if (bc.lo(0) == BCType::reflect_odd) {
+                q(iv[0],iv[1],k) = -q(ilo+(ilo-iv[0])-1,iv[1],k);
+            }
+        }
+        if (iv[0] > ihi) {
+            if (bc.hi(0) == BCType::ext_dir) {
+                // Do nothing.
+            } else if (bc.hi(0) == BCType::foextrap) {
+                q(iv[0],iv[1],k) = q(ihi,iv[1],k);
+            } else if (bc.hi(0) == BCType::reflect_even) {
+                q(iv[0],iv[1],k) = q(ihi-(iv[0]-ihi)+1,iv[1],k);
+            } else if (bc.hi(0) == BCType::reflect_odd) {
+                q(iv[0],iv[1],k) = -q(ihi-(iv[0]-ihi)+1,iv[1],k);
+            }
+        }
+#if AMREX_SPACEDIM >= 2
+        if (iv[1] < jlo) {
+            if (bc.lo(1) == BCType::ext_dir) {
+                // Do nothing.
+            } else if (bc.lo(1) == BCType::foextrap) {
+                q(iv[0],iv[1],k) = q(iv[0],jlo,k);
+            } else if (bc.lo(1) == BCType::reflect_even) {
+                q(iv[0],iv[1],k) = q(iv[0],jlo+(jlo-iv[1])-1,k);
+            } else if (bc.lo(1) == BCType::reflect_odd) {
+                q(iv[0],iv[1],k) = -q(iv[0],jlo+(jlo-iv[1])-1,k);
+            }           
+        }
+
+        if (iv[1] > jhi) {
+            if (bc.hi(1) == BCType::ext_dir) {
+                // Do nothing.
+            } else if (bc.hi(1) == BCType::foextrap) {
+                q(iv[0],iv[1],k) = q(iv[0],jhi,k);
+            } else if (bc.hi(1) == BCType::reflect_even) {
+                q(iv[0],iv[1],k) = q(iv[0],jhi-(iv[1]-jhi)+1,k);
+            } else if (bc.hi(1) == BCType::reflect_odd) {
+                q(iv[0],iv[1],k) = -q(iv[0],jhi-(iv[1]-jhi)+1,k);
+            }
+        }
+#endif              
+    }
             // do something for external Dirichlet (BCType::ext_dir)
-            amrex::Print() << "entered AmrCoreFill{}" << "\n";
+            // amrex::Print() << "entered AmrCoreFill{}" << "\n";
+            // Print() << "iv=  " << iv[0] << ", domlo= " << lbound(domain) << ", domhi= " << ubound(domain) << ", ncomp= " << numcomp << ", bcomp= " << bcomp << "\n";
         }
 };
 
@@ -41,14 +109,14 @@ void outletBC_partialwall (amrex::Box const& bx, amrex::Array4<amrex::Real> cons
     const auto domlo = amrex::lbound(domain);
     const auto domhi = amrex::ubound(domain);
 
-    const int is = std::max(qlo.x, domlo.x);
-    const int ie = std::min(qhi.x, domhi.x);
+    // const int is = std::max(qlo.x, domlo.x);
+    // const int ie = std::min(qhi.x, domhi.x);
     const int ilo = domlo.x;
     const int ihi = domhi.x;
 
 #if AMREX_SPACEDIM >= 2
-    const int js = std::max(qlo.y, domlo.y);
-    const int je = std::min(qhi.y, domhi.y);
+    // const int js = std::max(qlo.y, domlo.y);
+    // const int je = std::min(qhi.y, domhi.y);
     const int jlo = domlo.y;
     const int jhi = domhi.y;
 #endif
@@ -178,7 +246,7 @@ FillDomBoundary (amrex::MultiFab& phi, const amrex::Geometry& geom, const amrex:
 {
     using namespace amrex;
     // BL_PROFILE_VAR("FillDomainBoundary()", dombndry);
-    int myproc = ParallelDescriptor::MyProc();
+    // int myproc = ParallelDescriptor::MyProc();
     // Print(myproc) << "rank= " << myproc << ", entered LRFPFCT::FillDomainBoundary()" << "\n";
     if (geom.isAllPeriodic()) return;
     if (phi.nGrow() == 0) return;
@@ -187,24 +255,24 @@ FillDomBoundary (amrex::MultiFab& phi, const amrex::Geometry& geom, const amrex:
 
     // Print() << " entered FillDomBoundary() " << "\n";
 
-#if !(defined(AMREX_USE_CUDA) && defined(AMREX_USE_GPU_PRAGMA) && defined(AMREX_GPU_PRAGMA_NO_HOST))
-    if (Gpu::inLaunchRegion())
+// #if !(defined(AMREX_USE_CUDA) && defined(AMREX_USE_GPU_PRAGMA) && defined(AMREX_GPU_PRAGMA_NO_HOST))
+    // if (Gpu::inLaunchRegion())
     {
-#endif  
+// #endif  
         GpuBndryFuncFab<AmrCoreFill> gpu_bndry_func(AmrCoreFill{});
         PhysBCFunct<GpuBndryFuncFab<AmrCoreFill> > physbcf
             (geom, bc, gpu_bndry_func);
-        physbcf(phi, 0, phi.nComp(), phi.nGrowVect(), 0.0, 0);
-        // Print(myproc) << "rank= " << myproc << ", reached GpuBndryFuncFab()" << "\n";
-#if !(defined(AMREX_USE_CUDA) && defined(AMREX_USE_GPU_PRAGMA) && defined(AMREX_GPU_PRAGMA_NO_HOST))
-    }
-    else
-    {
-        CpuBndryFuncFab cpu_bndry_func(nullptr);;
-        PhysBCFunct<CpuBndryFuncFab> physbcf(geom, bc, cpu_bndry_func);
         physbcf(phi, 0, phi.nComp(), phi.nGrowVect(), cur_time, 0);
-        // Print(myproc) << "rank= " << myproc << ", reached CpuBndryFuncFab()" << "\n";
+        // Print(myproc) << "rank= " << myproc << ", reached GpuBndryFuncFab()" << "\n";
+// #if !(defined(AMREX_USE_CUDA) && defined(AMREX_USE_GPU_PRAGMA) && defined(AMREX_GPU_PRAGMA_NO_HOST))
     }
-#endif
+    // else
+    // {
+    //     CpuBndryFuncFab cpu_bndry_func(nullptr);;
+    //     PhysBCFunct<CpuBndryFuncFab> physbcf(geom, bc, cpu_bndry_func);
+    //     physbcf(phi, 0, phi.nComp(), phi.nGrowVect(), cur_time, 0);
+    //     // Print(myproc) << "rank= " << myproc << ", reached CpuBndryFuncFab()" << "\n";
+    // }
+// #endif
 }
 #endif

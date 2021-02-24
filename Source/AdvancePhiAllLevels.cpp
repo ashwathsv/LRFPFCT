@@ -561,7 +561,6 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
                 // Copy into Flux MultiFab
                     GpuArray<Array4<Real>, AMREX_SPACEDIM> fluxx{ AMREX_D_DECL( fluxes[lev][0].array(mfi),
                                                            fluxes[lev][1].array(mfi),fluxes[lev][2].array(mfi)) };
-
                 if(rk == rk_max){
                     amrex::ParallelFor(mfi.nodaltilebox(0), conscomp,
                         [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)

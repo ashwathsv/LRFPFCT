@@ -96,12 +96,13 @@ void compute_ad_flux_x(int i, int j, int k, int n,
              amrex::Array4<amrex::Real> const& vx, 
              amrex::Array4<amrex::Real> const& fab,
              amrex::Array4<amrex::Real> const& fabcx,
-             int fx_lox, int fx_hix, int fx_loy, int fx_hiy, 
+             int fx_lox, int fx_hix, 
+             int fx_loy, int fx_hiy, 
              amrex::Real dtdx, amrex::Real diff1)
 {
     using namespace amrex;
 
-    if(i > fx_lox && i < fx_hix){
+    if((i > fx_lox && i < fx_hix)){
       flax(i,j,k,n) = diff1*((sixth - sixth*pow(dtdx*vx(i,j,k),2.0))*(fabcx(i,j,k,n) - fabcx(i-1,j,k,n))
                     - one12*(fab(i,j,k,n) - fab(i-1,j,k,n)));      }
 }
@@ -113,7 +114,8 @@ void compute_ad_flux_y(int i, int j, int k, int n,
              amrex::Array4<amrex::Real> const& vy, 
              amrex::Array4<amrex::Real> const& fab,
              amrex::Array4<amrex::Real> const& fabcy, 
-             int fy_lox, int fy_hix, int fy_loy, int fy_hiy, 
+             int fy_lox, int fy_hix, 
+             int fy_loy, int fy_hiy, 
              amrex::Real dtdy, amrex::Real diff1)
 {
     if(j > fy_loy && j < fy_hiy){
@@ -213,64 +215,64 @@ void corrected_flux_y(int i, int j, int k, int n,
 }
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
-AMREX_GPU_DEVICE
-AMREX_FORCE_INLINE
-void create_flux_x(int i, int j, int k,
-                   amrex::Array4<amrex::Real> const& fx,
-                   amrex::Array4<amrex::Real const> const& vx,
-                   amrex::Array4<amrex::Real const> const& vy,
-                   amrex::Array4<amrex::Real const> const& px,
-                   amrex::Array4<amrex::Real const> const& py,
-                   amrex::Real dtdy)
-{
-    fx(i,j,k) = ( (vx(i,j,k) < 0) ?
-                (px(i,j,k) - 0.5*dtdy * ( 0.5*(vy(i  ,j+1,k  ) + vy(i  ,j,k)) * (py(i  ,j+1,k  )-py(i  ,j,k))))*vx(i,j,k) :
-                (px(i,j,k) - 0.5*dtdy * ( 0.5*(vy(i-1,j+1,k  ) + vy(i-1,j,k)) * (py(i-1,j+1,k  )-py(i-1,j,k))))*vx(i,j,k) );
-}
+// AMREX_GPU_DEVICE
+// AMREX_FORCE_INLINE
+// void create_flux_x(int i, int j, int k,
+//                    amrex::Array4<amrex::Real> const& fx,
+//                    amrex::Array4<amrex::Real const> const& vx,
+//                    amrex::Array4<amrex::Real const> const& vy,
+//                    amrex::Array4<amrex::Real const> const& px,
+//                    amrex::Array4<amrex::Real const> const& py,
+//                    amrex::Real dtdy)
+// {
+//     fx(i,j,k) = ( (vx(i,j,k) < 0) ?
+//                 (px(i,j,k) - 0.5*dtdy * ( 0.5*(vy(i  ,j+1,k  ) + vy(i  ,j,k)) * (py(i  ,j+1,k  )-py(i  ,j,k))))*vx(i,j,k) :
+//                 (px(i,j,k) - 0.5*dtdy * ( 0.5*(vy(i-1,j+1,k  ) + vy(i-1,j,k)) * (py(i-1,j+1,k  )-py(i-1,j,k))))*vx(i,j,k) );
+// }
 
-AMREX_GPU_DEVICE
-AMREX_FORCE_INLINE
-void create_flux_y(int i, int j, int k,
-                   amrex::Array4<amrex::Real> const& fy,
-                   amrex::Array4<amrex::Real const> const& vx,
-                   amrex::Array4<amrex::Real const> const& vy,
-                   amrex::Array4<amrex::Real const> const& py,
-                   amrex::Array4<amrex::Real const> const& px,
-                   amrex::Real dtdx)
-{
-    fy(i,j,k) = ( (vy(i,j,k) < 0) ?
-                (py(i,j,k) - 0.5*dtdx * ( 0.5*(vx(i+1,j  ,k  ) + vx(i,j  ,k)) * (px(i+1,j  ,k  )-px(i,j  ,k))))*vy(i,j,k) :
-                (py(i,j,k) - 0.5*dtdx * ( 0.5*(vx(i+1,j-1,k  ) + vx(i,j-1,k)) * (px(i+1,j-1,k  )-px(i,j-1,k))))*vy(i,j,k) );
-}
+// AMREX_GPU_DEVICE
+// AMREX_FORCE_INLINE
+// void create_flux_y(int i, int j, int k,
+//                    amrex::Array4<amrex::Real> const& fy,
+//                    amrex::Array4<amrex::Real const> const& vx,
+//                    amrex::Array4<amrex::Real const> const& vy,
+//                    amrex::Array4<amrex::Real const> const& py,
+//                    amrex::Array4<amrex::Real const> const& px,
+//                    amrex::Real dtdx)
+// {
+//     fy(i,j,k) = ( (vy(i,j,k) < 0) ?
+//                 (py(i,j,k) - 0.5*dtdx * ( 0.5*(vx(i+1,j  ,k  ) + vx(i,j  ,k)) * (px(i+1,j  ,k  )-px(i,j  ,k))))*vy(i,j,k) :
+//                 (py(i,j,k) - 0.5*dtdx * ( 0.5*(vx(i+1,j-1,k  ) + vx(i,j-1,k)) * (px(i+1,j-1,k  )-px(i,j-1,k))))*vy(i,j,k) );
+// }
 
 
-AMREX_GPU_DEVICE
-AMREX_FORCE_INLINE
-void flux_x(int i, int j, int k,
-            amrex::Array4<amrex::Real> const& px,
-            amrex::Array4<amrex::Real const> const& phi,
-            amrex::Array4<amrex::Real const> const& vx,
-            amrex::Array4<amrex::Real const> const& slope,
-            amrex::Real dtdx)
-{
-    px(i,j,k) = ( (vx(i,j,k) < 0) ?
-                phi(i  ,j,k) - slope(i  ,j,k)*(0.5 + 0.5*dtdx*vx(i,j,k)) :
-                phi(i-1,j,k) + slope(i-1,j,k)*(0.5 - 0.5*dtdx*vx(i,j,k)) );
-}
+// AMREX_GPU_DEVICE
+// AMREX_FORCE_INLINE
+// void flux_x(int i, int j, int k,
+//             amrex::Array4<amrex::Real> const& px,
+//             amrex::Array4<amrex::Real const> const& phi,
+//             amrex::Array4<amrex::Real const> const& vx,
+//             amrex::Array4<amrex::Real const> const& slope,
+//             amrex::Real dtdx)
+// {
+//     px(i,j,k) = ( (vx(i,j,k) < 0) ?
+//                 phi(i  ,j,k) - slope(i  ,j,k)*(0.5 + 0.5*dtdx*vx(i,j,k)) :
+//                 phi(i-1,j,k) + slope(i-1,j,k)*(0.5 - 0.5*dtdx*vx(i,j,k)) );
+// }
 
-AMREX_GPU_DEVICE
-AMREX_FORCE_INLINE
-void flux_y(int i, int j, int k,
-            amrex::Array4<amrex::Real> const& py,
-            amrex::Array4<amrex::Real const> const& phi,
-            amrex::Array4<amrex::Real const> const& vy,
-            amrex::Array4<amrex::Real const> const& slope,
-            amrex::Real dtdy)
-{
-    py(i,j,k) = ( (vy(i,j,k) < 0) ?
-                phi(i,j  ,k) - slope(i,j  ,k)*(0.5 + 0.5*dtdy*vy(i,j,k)) :
-                phi(i,j-1,k) + slope(i,j-1,k)*(0.5 - 0.5*dtdy*vy(i,j,k)) );
-}
+// AMREX_GPU_DEVICE
+// AMREX_FORCE_INLINE
+// void flux_y(int i, int j, int k,
+//             amrex::Array4<amrex::Real> const& py,
+//             amrex::Array4<amrex::Real const> const& phi,
+//             amrex::Array4<amrex::Real const> const& vy,
+//             amrex::Array4<amrex::Real const> const& slope,
+//             amrex::Real dtdy)
+// {
+//     py(i,j,k) = ( (vy(i,j,k) < 0) ?
+//                 phi(i,j  ,k) - slope(i,j  ,k)*(0.5 + 0.5*dtdy*vy(i,j,k)) :
+//                 phi(i,j-1,k) + slope(i,j-1,k)*(0.5 - 0.5*dtdy*vy(i,j,k)) );
+// }
 
 
 #endif

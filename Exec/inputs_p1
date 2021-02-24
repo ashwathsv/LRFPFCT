@@ -1,5 +1,6 @@
-max_step  = 2
-stop_time = 0.000761958
+max_step  = 100
+stop_time = 1.761958
+max_rk = 2
 
 #	COMPONENTS
 max_rk = 2
@@ -18,16 +19,16 @@ amr.n_error_buf	   = 4
 amr.grid_eff	   = 0.7
 
 # REFINEMENT
-amr.max_level       = 3       # maximum level number allowed
+amr.max_level       = 2       # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.blocking_factor = 8       # block factor in grid generation
 amr.max_grid_size   = 64
 
 amr.regrid_int      = 2       # how often to regrid
-amr.allow_level		= 3
+amr.allow_level		= 2
 
 # TIME STEP CONTROL
-adv.cfl            = 0.2     # cfl number for hyperbolic system
+adv.cfl            = 0.4     # cfl number for hyperbolic system
                              # In this test problem, the velocity is
 			     # time-dependent.  We could use 0.9 in
 			     # the 3D test, but need to use 0.7 in 2D
@@ -37,16 +38,17 @@ adv.do_reflux = 1
 adv.diff1 = 1.0
 
 # Tagging
-adv.tagfrac = 0.1 		#	must be < 1 
+adv.tagfrac = 0.2 		#	must be < 1 
+adv.do_subcycle    = 1
 
 # PLOTFILES
-amr.plot_file  = Outputs_P1L1omp/plt    # root name of plot file
-amr.plot_int   = 10    # number of timesteps between plot files
+amr.plot_file  = Outputs_P1L1bc/plt    # root name of plot file
+amr.plot_int   = 40    # number of timesteps between plot files
 
 # CHECKPOINT
-amr.chk_file = Outputs_P1L1omp/chk      # root name of checkpoint file
-amr.chk_int  = 55      # number of timesteps between checkpoint files
-#amr.restart  = Outputs3D_P1L0/chk0000100 # restart from this checkpoint file
+amr.chk_file = Outputs_P1L1bc/chk      # root name of checkpoint file
+amr.chk_int  = 100      # number of timesteps between checkpoint files
+#amr.restart  = Outputs_P1L1sc/chk0000200 # restart from this checkpoint file
 
 # INITIAL CONDITIONS
 prob.probtag = 1
@@ -62,6 +64,8 @@ prob.u1		 	  = 0.0				#	Centre of isentropic vortex (y-coordinate), in metres
 prob.v2		  	  = 0.0				#	Centre of isentropic vortex (y-coordinate), in metres
 prob.v1		 	  = 0.0				#	Centre of isentropic vortex (y-coordinate), in metres
 prob.rad_blast	  = 0.01
+prob.pminfrac	  = 0.0001
+prob.rominfrac	  = 0.0001
 
 #	PROBE DETAILS
 aux.nprobes		  = 0
