@@ -38,7 +38,7 @@
 // #define eighth  BL_REAL(0.125)
 #define sixth   0.16666666666666667
 // #define fifth   BL_REAL(0.2)
-// #define fourth  BL_REAL(0.25)
+#define fourth  0.25
 #define third   0.33333333333333333
 #define half    0.5
 #define one12	0.08333333333333333

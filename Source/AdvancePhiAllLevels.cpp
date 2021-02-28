@@ -380,10 +380,10 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
                 // compute anti-diffusive fluxes in the coordinate directions
                 amrex::ParallelFor(ngbxx, conscomp,
                      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-                     {  compute_ad_flux_x(i, j, k, n, fltx[0], vel[0], fabold, fabcx, ftx_lox, ftx_hix, ftx_loy, ftx_hiy, coeff*dtdx, diffc); });
+                     {  compute_ad_flux_x(i, j, k, n, fltx[0], vel[0], vel[1], fabold, fabcx, ftx_lox, ftx_hix, ftx_loy, ftx_hiy, coeff*dtdx, coeff*dtdy, diffc); });
                 amrex::ParallelFor(ngbxy, conscomp,
                      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-                     {  compute_ad_flux_y(i, j, k, n, fltx[1], vel[1], fabold, fabcy, fty_lox, fty_hix, fty_loy, fty_hiy, coeff*dtdy, diffc); });
+                     {  compute_ad_flux_y(i, j, k, n, fltx[1], vel[0], vel[1], fabold, fabcy, fty_lox, fty_hix, fty_loy, fty_hiy, coeff*dtdx, coeff*dtdy, diffc); });
 #if AMREX_SPACEDIM==3
                 amrex::ParallelFor(ngbxz,
                      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -561,7 +561,6 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
                 // Copy into Flux MultiFab
                     GpuArray<Array4<Real>, AMREX_SPACEDIM> fluxx{ AMREX_D_DECL( fluxes[lev][0].array(mfi),
                                                            fluxes[lev][1].array(mfi),fluxes[lev][2].array(mfi)) };
-
                 if(rk == rk_max){
                     amrex::ParallelFor(mfi.nodaltilebox(0), conscomp,
                         [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)

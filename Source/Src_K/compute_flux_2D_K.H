@@ -21,8 +21,8 @@ void compute_conv_flux_x(int i, int j, int k,
     flcx(i,j,k,rov) = half*( (fab(i-1,j,k,rou)*fab(i-1,j,k,rov)/fab(i-1,j,k,ro)) + (fab(i,j,k,rou)*fab(i,j,k,rov)/fab(i,j,k,ro)) );
     flcx(i,j,k,roE) = half*( ( (fab(i-1,j,k,roE)*fab(i-1,j,k,rou))/fab(i-1,j,k,ro) ) 
                     +        ( (fab(i,j,k,roE)*fab(i,j,k,rou))/fab(i,j,k,ro) )   )   
-                    // + half*vx(i,j,k)*( prearr(i-1,j,k) + prearr(i,j,k) );
-                    + half*( (prearr(i-1,j,k)*fab(i-1,j,k,rou)/fab(i-1,j,k,ro)) + (prearr(i,j,k)*fab(i,j,k,rou)/fab(i,j,k,ro)) );
+                    + half*vx(i,j,k)*( prearr(i-1,j,k) + prearr(i,j,k) );
+                    // + half*( (prearr(i-1,j,k)*fab(i-1,j,k,rou)/fab(i-1,j,k,ro)) + (prearr(i,j,k)*fab(i,j,k,rou)/fab(i,j,k,ro)) );
   }
 }
 //---------------------------------------------------------------------------
@@ -42,8 +42,8 @@ void compute_conv_flux_y(int i, int j, int k,
                     + half*( prearr(i,j-1,k) + prearr(i,j,k) );
     flcy(i,j,k,roE) = half*( ( (fab(i,j-1,k,roE)*fab(i,j-1,k,rov))/fab(i,j-1,k,ro) ) 
                     +        ( (fab(i,j,k,roE)*fab(i,j,k,rov))/fab(i,j,k,ro) )   )   
-                    // + half*vy(i,j,k)*( prearr(i,j-1,k) + prearr(i,j,k) );  
-                    + half*( (prearr(i,j-1,k)*fab(i,j-1,k,rov)/fab(i,j-1,k,ro)) + (prearr(i,j,k)*fab(i,j,k,rov)/fab(i,j,k,ro)) ); 
+                    + half*vy(i,j,k)*( prearr(i,j-1,k) + prearr(i,j,k) );  
+                    // + half*( (prearr(i,j-1,k)*fab(i,j-1,k,rov)/fab(i,j-1,k,ro)) + (prearr(i,j,k)*fab(i,j,k,rov)/fab(i,j,k,ro)) ); 
   }
 }
 //---------------------------------------------------------------------------
@@ -75,6 +75,9 @@ void compute_diff_flux_x(int i, int j, int k, int n,
 {
     if(i > fx_lox && i < fx_hix){
       fldx(i,j,k,n) = (sixth + third*pow(dtdx*vx(i,j,k),2.0))*(fab(i-1,j,k,n) - fab(i,j,k,n))/dtdx; }
+
+    // if(i > fx_lox && i < fx_hix){
+    //   fldx(i,j,k,n) = (one12 + third*pow(dtdx*vx(i,j,k),2.0))*(fab(i-1,j,k,n) - fab(i,j,k,n))/dtdx; }
 }
 //---------------------------------------------------------------------------
 AMREX_GPU_DEVICE
@@ -87,6 +90,9 @@ void compute_diff_flux_y(int i, int j, int k, int n,
 {
     if(j > fy_loy && j < fy_hiy){
       fldy(i,j,k,n) = (sixth + third*pow(dtdy*vy(i,j,k),2.0))*(fab(i,j-1,k,n) - fab(i,j,k,n))/dtdy;    }
+
+    // if(j > fy_loy && j < fy_hiy){
+    //   fldy(i,j,k,n) = (one12 + third*pow(dtdy*vy(i,j,k),2.0))*(fab(i,j-1,k,n) - fab(i,j,k,n))/dtdy;    }
 }
 //---------------------------------------------------------------------------
 AMREX_GPU_DEVICE
@@ -94,14 +100,29 @@ AMREX_FORCE_INLINE
 void compute_ad_flux_x(int i, int j, int k, int n,
              amrex::Array4<amrex::Real> const& flax,
              amrex::Array4<amrex::Real> const& vx, 
+             amrex::Array4<amrex::Real> const& vy, 
              amrex::Array4<amrex::Real> const& fab,
              amrex::Array4<amrex::Real> const& fabcx,
-             int fx_lox, int fx_hix, int fx_loy, int fx_hiy, 
-             amrex::Real dtdx, amrex::Real diff1)
+             int fx_lox, int fx_hix, 
+             int fx_loy, int fx_hiy, 
+             amrex::Real dtdx, amrex::Real dtdy,
+             amrex::Real diff1)
 {
     using namespace amrex;
 
-    if(i > fx_lox && i < fx_hix){
+    // if((i > fx_lox && i < fx_hix) && (j > fx_loy && j < fx_hiy)){
+    //   Real epsx = dtdx*vx(i,j,k);
+    //   Real epsy = fourth*dtdy*(vy(i,j,k) + vy(i,j+1,k) + vy(i-1,j,k) + vy(i-1,j+1,k));
+    //   Real ut1 = fourth*(fabcx(i,j,k,n) + fabcx(i,j+1,k,n) + fabcx(i-1,j,k,n) + fabcx(i-1,j+1,k,n));
+    //   Real ut2 = fourth*(fabcx(i,j,k,n) + fabcx(i,j-1,k,n) + fabcx(i-1,j,k,n) + fabcx(i-1,j-1,k,n));
+
+    //   flax(i,j,k,n) = diff1*(one12 - one12*pow(epsx,2.0))*(fabcx(i,j,k,n) - fabcx(i-1,j,k,n))
+    //                 + (-diff1*half*epsx*epsy)*(ut1 - ut2);      }
+
+      // flax(i,j,k,n) = diff1*(sixth - sixth*pow(epsx,2.0))*(fabcx(i,j,k,n) - fabcx(i-1,j,k,n))
+      //               + (-diff1*half*epsx*epsy)*(ut1 - ut2);      }
+
+    if((i > fx_lox && i < fx_hix)){
       flax(i,j,k,n) = diff1*((sixth - sixth*pow(dtdx*vx(i,j,k),2.0))*(fabcx(i,j,k,n) - fabcx(i-1,j,k,n))
                     - one12*(fab(i,j,k,n) - fab(i-1,j,k,n)));      }
 }
@@ -110,12 +131,29 @@ AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 void compute_ad_flux_y(int i, int j, int k, int n,
              amrex::Array4<amrex::Real> const& flay,
+             amrex::Array4<amrex::Real> const& vx,
              amrex::Array4<amrex::Real> const& vy, 
              amrex::Array4<amrex::Real> const& fab,
              amrex::Array4<amrex::Real> const& fabcy, 
-             int fy_lox, int fy_hix, int fy_loy, int fy_hiy, 
-             amrex::Real dtdy, amrex::Real diff1)
+             int fy_lox, int fy_hix, 
+             int fy_loy, int fy_hiy, 
+             amrex::Real dtdx, amrex::Real dtdy, 
+             amrex::Real diff1)
 {
+    using namespace amrex;
+
+    // if((i > fy_lox && i < fy_hix) && (j > fy_loy && j < fy_hiy)){
+    //   Real epsx = fourth*dtdx*(vx(i,j,k) + vx(i+1,j,k) + vx(i,j-1,k) + vx(i+1,j-1,k));
+    //   Real epsy = dtdy*vy(i,j,k);
+    //   Real ut1 = fourth*(fabcy(i,j,k,n) + fabcy(i+1,j,k,n) + fabcy(i,j-1,k,n) + fabcy(i+1,j-1,k,n));
+    //   Real ut2 = fourth*(fabcy(i,j,k,n) + fabcy(i-1,j,k,n) + fabcy(i,j-1,k,n) + fabcy(i-1,j-1,k,n));
+
+    //   flay(i,j,k,n) = diff1*(one12 - one12*pow(epsy,2.0))*(fabcy(i,j,k,n) - fabcy(i,j-1,k,n))
+    //                 + (-diff1*half*epsx*epsy)*(ut1 - ut2);      }
+
+      // flay(i,j,k,n) = diff1*(sixth - sixth*pow(epsy,2.0))*(fabcy(i,j,k,n) - fabcy(i,j-1,k,n))
+      //               + (-diff1*half*epsx*epsy)*(ut1 - ut2);      }
+
     if(j > fy_loy && j < fy_hiy){
       flay(i,j,k,n) = diff1*((sixth - sixth*pow(dtdy*vy(i,j,k),2.0))*(fabcy(i,j,k,n) - fabcy(i,j-1,k,n))
                     - one12*(fab(i,j,k,n) - fab(i,j-1,k,n)));      }
@@ -213,64 +251,64 @@ void corrected_flux_y(int i, int j, int k, int n,
 }
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
-AMREX_GPU_DEVICE
-AMREX_FORCE_INLINE
-void create_flux_x(int i, int j, int k,
-                   amrex::Array4<amrex::Real> const& fx,
-                   amrex::Array4<amrex::Real const> const& vx,
-                   amrex::Array4<amrex::Real const> const& vy,
-                   amrex::Array4<amrex::Real const> const& px,
-                   amrex::Array4<amrex::Real const> const& py,
-                   amrex::Real dtdy)
-{
-    fx(i,j,k) = ( (vx(i,j,k) < 0) ?
-                (px(i,j,k) - 0.5*dtdy * ( 0.5*(vy(i  ,j+1,k  ) + vy(i  ,j,k)) * (py(i  ,j+1,k  )-py(i  ,j,k))))*vx(i,j,k) :
-                (px(i,j,k) - 0.5*dtdy * ( 0.5*(vy(i-1,j+1,k  ) + vy(i-1,j,k)) * (py(i-1,j+1,k  )-py(i-1,j,k))))*vx(i,j,k) );
-}
+// AMREX_GPU_DEVICE
+// AMREX_FORCE_INLINE
+// void create_flux_x(int i, int j, int k,
+//                    amrex::Array4<amrex::Real> const& fx,
+//                    amrex::Array4<amrex::Real const> const& vx,
+//                    amrex::Array4<amrex::Real const> const& vy,
+//                    amrex::Array4<amrex::Real const> const& px,
+//                    amrex::Array4<amrex::Real const> const& py,
+//                    amrex::Real dtdy)
+// {
+//     fx(i,j,k) = ( (vx(i,j,k) < 0) ?
+//                 (px(i,j,k) - 0.5*dtdy * ( 0.5*(vy(i  ,j+1,k  ) + vy(i  ,j,k)) * (py(i  ,j+1,k  )-py(i  ,j,k))))*vx(i,j,k) :
+//                 (px(i,j,k) - 0.5*dtdy * ( 0.5*(vy(i-1,j+1,k  ) + vy(i-1,j,k)) * (py(i-1,j+1,k  )-py(i-1,j,k))))*vx(i,j,k) );
+// }
 
-AMREX_GPU_DEVICE
-AMREX_FORCE_INLINE
-void create_flux_y(int i, int j, int k,
-                   amrex::Array4<amrex::Real> const& fy,
-                   amrex::Array4<amrex::Real const> const& vx,
-                   amrex::Array4<amrex::Real const> const& vy,
-                   amrex::Array4<amrex::Real const> const& py,
-                   amrex::Array4<amrex::Real const> const& px,
-                   amrex::Real dtdx)
-{
-    fy(i,j,k) = ( (vy(i,j,k) < 0) ?
-                (py(i,j,k) - 0.5*dtdx * ( 0.5*(vx(i+1,j  ,k  ) + vx(i,j  ,k)) * (px(i+1,j  ,k  )-px(i,j  ,k))))*vy(i,j,k) :
-                (py(i,j,k) - 0.5*dtdx * ( 0.5*(vx(i+1,j-1,k  ) + vx(i,j-1,k)) * (px(i+1,j-1,k  )-px(i,j-1,k))))*vy(i,j,k) );
-}
+// AMREX_GPU_DEVICE
+// AMREX_FORCE_INLINE
+// void create_flux_y(int i, int j, int k,
+//                    amrex::Array4<amrex::Real> const& fy,
+//                    amrex::Array4<amrex::Real const> const& vx,
+//                    amrex::Array4<amrex::Real const> const& vy,
+//                    amrex::Array4<amrex::Real const> const& py,
+//                    amrex::Array4<amrex::Real const> const& px,
+//                    amrex::Real dtdx)
+// {
+//     fy(i,j,k) = ( (vy(i,j,k) < 0) ?
+//                 (py(i,j,k) - 0.5*dtdx * ( 0.5*(vx(i+1,j  ,k  ) + vx(i,j  ,k)) * (px(i+1,j  ,k  )-px(i,j  ,k))))*vy(i,j,k) :
+//                 (py(i,j,k) - 0.5*dtdx * ( 0.5*(vx(i+1,j-1,k  ) + vx(i,j-1,k)) * (px(i+1,j-1,k  )-px(i,j-1,k))))*vy(i,j,k) );
+// }
 
 
-AMREX_GPU_DEVICE
-AMREX_FORCE_INLINE
-void flux_x(int i, int j, int k,
-            amrex::Array4<amrex::Real> const& px,
-            amrex::Array4<amrex::Real const> const& phi,
-            amrex::Array4<amrex::Real const> const& vx,
-            amrex::Array4<amrex::Real const> const& slope,
-            amrex::Real dtdx)
-{
-    px(i,j,k) = ( (vx(i,j,k) < 0) ?
-                phi(i  ,j,k) - slope(i  ,j,k)*(0.5 + 0.5*dtdx*vx(i,j,k)) :
-                phi(i-1,j,k) + slope(i-1,j,k)*(0.5 - 0.5*dtdx*vx(i,j,k)) );
-}
+// AMREX_GPU_DEVICE
+// AMREX_FORCE_INLINE
+// void flux_x(int i, int j, int k,
+//             amrex::Array4<amrex::Real> const& px,
+//             amrex::Array4<amrex::Real const> const& phi,
+//             amrex::Array4<amrex::Real const> const& vx,
+//             amrex::Array4<amrex::Real const> const& slope,
+//             amrex::Real dtdx)
+// {
+//     px(i,j,k) = ( (vx(i,j,k) < 0) ?
+//                 phi(i  ,j,k) - slope(i  ,j,k)*(0.5 + 0.5*dtdx*vx(i,j,k)) :
+//                 phi(i-1,j,k) + slope(i-1,j,k)*(0.5 - 0.5*dtdx*vx(i,j,k)) );
+// }
 
-AMREX_GPU_DEVICE
-AMREX_FORCE_INLINE
-void flux_y(int i, int j, int k,
-            amrex::Array4<amrex::Real> const& py,
-            amrex::Array4<amrex::Real const> const& phi,
-            amrex::Array4<amrex::Real const> const& vy,
-            amrex::Array4<amrex::Real const> const& slope,
-            amrex::Real dtdy)
-{
-    py(i,j,k) = ( (vy(i,j,k) < 0) ?
-                phi(i,j  ,k) - slope(i,j  ,k)*(0.5 + 0.5*dtdy*vy(i,j,k)) :
-                phi(i,j-1,k) + slope(i,j-1,k)*(0.5 - 0.5*dtdy*vy(i,j,k)) );
-}
+// AMREX_GPU_DEVICE
+// AMREX_FORCE_INLINE
+// void flux_y(int i, int j, int k,
+//             amrex::Array4<amrex::Real> const& py,
+//             amrex::Array4<amrex::Real const> const& phi,
+//             amrex::Array4<amrex::Real const> const& vy,
+//             amrex::Array4<amrex::Real const> const& slope,
+//             amrex::Real dtdy)
+// {
+//     py(i,j,k) = ( (vy(i,j,k) < 0) ?
+//                 phi(i,j  ,k) - slope(i,j  ,k)*(0.5 + 0.5*dtdy*vy(i,j,k)) :
+//                 phi(i,j-1,k) + slope(i,j-1,k)*(0.5 - 0.5*dtdy*vy(i,j,k)) );
+// }
 
 
 #endif

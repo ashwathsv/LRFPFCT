@@ -15,9 +15,6 @@ LRFPFCT::DefineVelocityAllLevels (Real time)
 void
 LRFPFCT::DefineVelocityAtLevel (int lev, Real time)
 {
-    // int myproc = ParallelDescriptor::MyProc();
-    // Print(myproc) << "rank= " << myproc << ", reached DefineVelocityAtLevel()" << "\n";
-    // const auto dx = geom[lev].CellSizeArray();
     MultiFab& state = phi_new[lev];
     const int ngrow = nghost;
 
@@ -89,9 +86,6 @@ LRFPFCT::DefineVelocityAtLevel (int lev, Real time)
 void
 LRFPFCT::DefineVelocityAtLevelDt (int lev, Real time)
 {
-    int myproc = ParallelDescriptor::MyProc();
-    // Print(myproc) << "rank= " << myproc << ", reached DefineVelocityAtLevel()" << "\n";
-    // const auto dx = geom[lev].CellSizeArray();
     MultiFab& state = phi_new[lev];
     const int ngrow = nghost;
 
@@ -102,11 +96,6 @@ LRFPFCT::DefineVelocityAtLevelDt (int lev, Real time)
         FArrayBox tmpfab;
         for (MFIter mfi(state,TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
-            // const Box& iterbx1 = mfi.tilebox();
-            // const Box& iterbx2 = amrex::grow(mfi.tilebox(),ngrow);
-
-            // Print() << "rank= " << myproc << "lo(ibx1)= " << lbound(iterbx1) << ", " << ubound(iterbx1)
-            //         << ", lo(ibx2)= " << lbound(iterbx2) << ", " << ubound(iterbx2) << "\n";
 
         // ======== GET FACE VELOCITY =========
             GpuArray<Box, AMREX_SPACEDIM> nbx;
@@ -118,20 +107,9 @@ LRFPFCT::DefineVelocityAtLevelDt (int lev, Real time)
                          const Box& ngbxy = nbx[1];,
                          const Box& ngbxz = nbx[2];);
 
-            // Print(myproc) << "rank= " << myproc << "lo(y)= " << lbound(ngbxy) << ", hi(y)= " << ubound(ngbxy) << " " << "\n";
-
-            // Print(myproc) << "rank= " << myproc << "lo(y)= " << ngbxy.smallEnd(0) << 
-            // " " << ngbxy.smallEnd(1) << ", hi(y)= " << ngbxy.bigEnd(0) << " " << ngbxy.bigEnd(1) << "\n";
-
             GpuArray<Array4<Real>, AMREX_SPACEDIM> vel{ AMREX_D_DECL( facevel[lev][0].array(mfi),
                                                                       facevel[lev][1].array(mfi),
                                                                       facevel[lev][2].array(mfi)) };
-
-            // Print(myproc) << "rank= " << myproc << "lo(velx)= " << lo.x << " " << lo.y << ", hi(velx)= " << hi.x << " " << hi.y << "\n";
-            // Print(myproc) << "rank= " << myproc << "lo(vely)= " << lbound(vel[1]) << ", hi(vely)= " << ubound(vel[1]) << "\n";
-
-            // Print(myproc) << "rank= " << myproc << "lo(velx)= " << vx_lox << 
-            // " " << vx_loy << ", hi(velx)= " << vx_hix << " " << vx_hiy << "\n";
 
             Array4<Real> fab = state[mfi].array();
             GeometryData geomdata = geom[lev].data();

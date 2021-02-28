@@ -44,6 +44,7 @@ LRFPFCT::LRFPFCT ()
     if (do_subcycle) {
         for (int lev = 1; lev <= max_level; ++lev) {
             nsubsteps[lev] = MaxRefRatio(lev-1);
+            // nsubsteps[lev] = 1;
         }
     }
 
@@ -660,7 +661,7 @@ LRFPFCT::Evolve ()
         // Real sum_phi = phi_new[0].sum();
 
         amrex::Print() << "Coarse STEP " << step+1 << " ends." << " TIME = " << cur_time
-                       << " DT = " << dt[0] << " min(pre) = " << phi_new[0].min(pre) << std::endl;
+                       << " DT = " << dt[0] << " min(pre) = " << phi_new[0].min(pre,4) << std::endl;
 
         // sync up time
         for (lev = 0; lev <= finest_level; ++lev) {
@@ -714,6 +715,7 @@ LRFPFCT::ComputeDt ()
     int n_factor = 1;
 
     for (int lev = 0; lev <= finest_level; ++lev) {
+        // Print() << "lev= " << lev << ", dt= " << dt[lev] << "\n";
         dt_tmp[lev] = std::min(dt_tmp[lev], change_max*dt[lev]);
         n_factor *= nsubsteps[lev];
         dt_0 = std::min(dt_0, n_factor*dt_tmp[lev]);
@@ -727,11 +729,19 @@ LRFPFCT::ComputeDt ()
     }
 
     dt[0] = dt_0;
-
+    // Print() << "lev= 0" << ", dt= " << dt[0] << ", nsubsteps= " << nsubsteps[0] << "\n";
     for (int lev = 1; lev <= finest_level; ++lev) {
         dt[lev] = dt[lev-1] / nsubsteps[lev];
     }
-    Print() << "dt[0] = " << dt[0] << "\n";
+
+    // for (int lev = 0; lev <= finest_level; ++lev) {
+    //     dt[lev] = dt[finest_level];
+    //     if(lev_allow < finest_level){
+    //         dt[lev] = dt[lev_allow];
+    // }
+    // Print() << "lev= " << lev << ", dt= " << dt[lev] << ", nsubsteps= " << nsubsteps[lev] << "\n";
+    // }
+    // Print() << "dt[0] = " << dt[0] << "\n";
 }
 
 // compute dt from CFL considerations
@@ -760,6 +770,8 @@ LRFPFCT::EstTimeStep (int lev, Real time)
 
     dt_est *= cfl;
 
+    // Print() << "lev= " << lev << ", dt= " << dt_est << ", nsubsteps= " << nsubsteps[lev] << "\n";
+
     return dt_est;
 }
 
@@ -779,6 +791,7 @@ LRFPFCT::timeStepWithSubcycling (int lev, Real time, int iteration)
         // regrid changes level "lev+1" so we don't regrid on max_level
         // also make sure we don't regrid fine levels again if 
         // it was taken care of during a coarser regrid
+
         if (lev < max_level && istep[lev] > last_regrid_step[lev]) 
         {
             if (istep[lev] % regrid_int == 0)
@@ -797,6 +810,9 @@ LRFPFCT::timeStepWithSubcycling (int lev, Real time, int iteration)
                 for (int k = old_finest+1; k <= finest_level; ++k) {
                     dt[k] = dt[k-1] / MaxRefRatio(k-1);
                 }
+                // for (int k = 0; k <= finest_level; ++k){
+                //     dt[k] = dt[finest_level];
+                // }
             }
         }
     }
@@ -814,7 +830,7 @@ LRFPFCT::timeStepWithSubcycling (int lev, Real time, int iteration)
 
     Real t_nph = t_old[lev] + 0.5*dt[lev]; 
 
-    DefineVelocityAtLevel(lev, t_nph);
+    // DefineVelocityAtLevel(lev, t_nph);
     AdvancePhiAtLevel(lev, time, dt[lev], iteration, nsubsteps[lev]);
 
     ++istep[lev];
@@ -833,13 +849,43 @@ LRFPFCT::timeStepWithSubcycling (int lev, Real time, int iteration)
             timeStepWithSubcycling(lev+1, time+(i-1)*dt[lev+1], i);
         }
 
+        ParallelDescriptor::Barrier();
+        phi_new[lev].FillBoundary();
+        phi_new[lev].FillBoundary(geom[lev].periodicity());
+        FillDomBoundary(phi_new[lev],geom[lev],bcs,time);
+
         if (do_reflux)
         {
             // update lev based on coarse-fine flux mismatch
             flux_reg[lev+1]->Reflux(phi_new[lev], 1.0, 0, 0, conscomp, geom[lev]);
+            
+            ParallelDescriptor::Barrier();
+            phi_new[lev].FillBoundary();
+            FillDomBoundary(phi_new[lev],geom[lev],bcs,time);
+            phi_new[lev].FillBoundary(geom[lev].periodicity());
         }
 
         AverageDownTo(lev); // average lev+1 down to lev
+        ParallelDescriptor::Barrier();
+
+        phi_new[lev].FillBoundary();
+        FillDomBoundary(phi_new[lev],geom[lev],bcs,time);
+        phi_new[lev].FillBoundary(geom[lev].periodicity());
+
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    {
+        for (MFIter mfi(phi_new[lev],TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const Box& box = amrex::grow(mfi.tilebox(),nghost);
+            Array4<Real> state = phi_new[lev][mfi].array();
+            amrex::launch(box,
+                     [=] AMREX_GPU_DEVICE (Box const& tbx)
+                     {  CalcAuxillary(tbx, state, pmin);  });
+        }
+    }
+
     }
     
 }
