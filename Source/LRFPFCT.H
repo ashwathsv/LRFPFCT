@@ -71,6 +71,7 @@ public:
 
     void DefineVelocityAllLevels (amrex::Real time);
 
+	void CalcAuxillaryWrapper(int lev);
     // compute dt from CFL considerations
     amrex::Real EstTimeStep (int lev, amrex::Real time);
 

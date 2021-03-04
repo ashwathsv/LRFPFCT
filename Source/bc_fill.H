@@ -84,7 +84,6 @@ struct AmrCoreFill
     }
             // do something for external Dirichlet (BCType::ext_dir)
             // amrex::Print() << "entered AmrCoreFill{}" << "\n";
-            // Print() << "iv=  " << iv[0] << ", domlo= " << lbound(domain) << ", domhi= " << ubound(domain) << ", ncomp= " << numcomp << ", bcomp= " << bcomp << "\n";
         }
 };
 

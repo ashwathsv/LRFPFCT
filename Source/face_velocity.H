@@ -14,6 +14,8 @@ void get_face_velocity_x_dt(int i, int j, int k,
 {
     vx(i,j,k) = half*( ( sqrt(gamma*fab(i-1,j,k,pre)/fab(i-1,j,k,ro)) + fabs(fab(i-1,j,k,rou)/fab(i-1,j,k,ro)) ) 
               + ( sqrt(gamma*fab(i,j,k,pre)/fab(i,j,k,ro)) + fabs(fab(i,j,k,rou)/fab(i,j,k,ro)) ) );
+//	if (vx(i,j,k) < 0.0){
+//		AMREX_ASSERT_WITH_MESSAGE(vx(i,j,k) > 0.0,"vx < 0.0 (face_velocity.H, L18)");	}
 }
 
 AMREX_GPU_DEVICE
@@ -24,6 +26,8 @@ void get_face_velocity_y_dt(int i, int j, int k,
 {
     vy(i,j,k) = half*( ( sqrt(gamma*fab(i,j-1,k,pre)/fab(i,j-1,k,ro)) + fabs(fab(i,j-1,k,rov)/fab(i,j-1,k,ro)) ) 
               + ( sqrt(gamma*fab(i,j,k,pre)/fab(i,j,k,ro)) + fabs(fab(i,j,k,rov)/fab(i,j,k,ro)) ) );
+//	if (vy(i,j,k) < 0.0){
+//		AMREX_ASSERT_WITH_MESSAGE(vy(i,j,k) > 0.0,"vy < 0.0 (face_velocity.H, L30)");   }
 }
 
 AMREX_GPU_DEVICE

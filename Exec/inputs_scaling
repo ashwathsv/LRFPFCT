@@ -1,5 +1,5 @@
-max_step  = 1
-stop_time = 1.761958
+max_step  = 2000
+stop_time = 10.761958
 max_rk = 2
 
 #	COMPONENTS
@@ -11,7 +11,7 @@ geometry.coord_sys   =  0       # 0 => cart
 # Domain size (m)
 geometry.prob_lo     =  0.0  0.0  0.0 
 geometry.prob_hi     =  0.1  0.1  0.1
-amr.n_cell           =  128  128  16
+amr.n_cell           =  2048  2048  16
 
 # VERBOSITY
 amr.v              = 1       # verbosity in Amr
@@ -19,13 +19,13 @@ amr.n_error_buf	   = 4
 amr.grid_eff	   = 0.7
 
 # REFINEMENT
-amr.max_level       = 3       # maximum level number allowed
+amr.max_level       = 0       # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.blocking_factor = 8       # block factor in grid generation
-amr.max_grid_size   = 64
+amr.max_grid_size   = 2048
 
 amr.regrid_int      = 2       # how often to regrid
-amr.allow_level		= 3
+amr.allow_level		= 0
 
 # TIME STEP CONTROL
 adv.cfl            = 0.4     # cfl number for hyperbolic system
@@ -43,11 +43,11 @@ adv.do_subcycle    = 1
 
 # PLOTFILES
 amr.plot_file  = /scratch/user/ashwathsv/Outputs_P1L2bc/plt    # root name of plot file
-amr.plot_int   = 10    # number of timesteps between plot files
+amr.plot_int   = -1    # number of timesteps between plot files
 
 # CHECKPOINT
 amr.chk_file = /scratch/user/ashwathsv/Outputs_P1L2bc/chk      # root name of checkpoint file
-amr.chk_int  = 55      # number of timesteps between checkpoint files
+amr.chk_int  = -1      # number of timesteps between checkpoint files
 #amr.restart  = Outputs3D_P1L0/chk0000100 # restart from this checkpoint file
 
 # INITIAL CONDITIONS
@@ -64,8 +64,8 @@ prob.u1		 	  = 0.0				#	Centre of isentropic vortex (y-coordinate), in metres
 prob.v2		  	  = 0.0				#	Centre of isentropic vortex (y-coordinate), in metres
 prob.v1		 	  = 0.0				#	Centre of isentropic vortex (y-coordinate), in metres
 prob.rad_blast	  = 0.01
-prob.pminfrac	  = 0.0001
-prob.rominfrac	  = 0.0001
+prob.pminfrac	  = 0.001
+prob.rominfrac	  = 0.001
 
 #	PROBE DETAILS
 aux.nprobes		  = 0

@@ -10,9 +10,9 @@ DIM        = 2
 
 COMP	   = gnu
 
-INCLUDE_LOCATIONS += /usr/local/opt/llvm/include
-LIBRARY_LOCATIONS += /usr/local/opt/llvm/lib
-LIBRARIES += -lomp
+#INCLUDE_LOCATIONS += /usr/local/opt/llvm/include
+#LIBRARY_LOCATIONS += /usr/local/opt/llvm/lib
+#LIBRARIES += -lomp
 
 USE_MPI    = TRUE
 # USE_OMP    = FALSE

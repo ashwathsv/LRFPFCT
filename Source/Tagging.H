@@ -63,7 +63,7 @@ state_error (amrex::Box const& bx,
     			amrex::Real gradpx = half*(state(i+1,j,k,pre) - state(i-1,j,k,pre))/dx[0];
     			amrex::Real gradpy = half*(state(i,j+1,k,pre) - state(i,j-1,k,pre))/dx[1];
 
-    			if(fabs(gradpx) > gpx_lim || fabs(gradpy) > gpy_lim)
+    			if(fabs(gradpx) >= gpx_lim || fabs(gradpy) >= gpy_lim)
     				tag(i,j,k) = tagval;
     		}
     	}

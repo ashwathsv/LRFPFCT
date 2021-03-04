@@ -60,6 +60,8 @@ LRFPFCT::AdvancePhiAtLevel (int lev, Real time, Real dt_lev, int /*iteration*/, 
 					 {  CalcAuxillary(tbx, state, minp);  });
 		}
 	}
+	
+//	Gpu::synchronize();
 
 	if(S_new.min(ro,num_grow) < 0.0 || S_new.min(pre,num_grow) < 0.0 || S_new.min(mach,num_grow) < 0.0 || S_new.min(roE,num_grow) < 0.0){
 		Print() << "Level (after FillPatch) = " << lev << "\n";
@@ -307,6 +309,8 @@ LRFPFCT::AdvancePhiAtLevel (int lev, Real time, Real dt_lev, int /*iteration*/, 
 			AMREX_D_TERM(FillDomBoundary(Sconvx,geom[lev],bcs,time);,FillDomBoundary(Sconvy,geom[lev],bcs,time);,
 					 FillDomBoundary(Sconvz,geom[lev],bcs,time));
 		}
+//	Gpu::synchronize();
+//	Gpu::streamSynchronize();
 	// Print() << "about to stary FCT step 2, RK= " << rk << "\n";
 //--------------------------------------------------------------------------------
 //--------------------------------------------------------------------------------
@@ -552,15 +556,8 @@ LRFPFCT::AdvancePhiAtLevel (int lev, Real time, Real dt_lev, int /*iteration*/, 
                 [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
                 { scale_y_flux(i, j, k, n, fluxx[1], fltx[1], 1.0/dtdy, dt_lev, dx); });
 
-            // for(int dir = 0; dir < BL_SPACEDIM; dir++){
-            // Print() << "i= " << dir << "fluxx_lim= " << lbound(fluxx[i]) << ", " << ubound(fluxx[i]) << "\n";
-            // Print() << "i= " << dir << "flx_lim= " << lbound(flx[i]) << ", " << ubound(flx[i]) << "\n";
-            // Print() << "ncomp= " << fluxx[dir].nComp() << ", " << flx[dir].nComp() << "\n";
-            //     amrex::ParallelFor(mfi.nodaltilebox(dir), conscomp,
-            //         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-            //         {   fluxx[dir](i,j,k,n) = flx[dir](i,j,k,n); });                        
-            // }
-        }                                                 
+        }                   
+		Gpu::streamSynchronize();                              
 	  }// end(MFIter)
 // fill boundaries
 #ifdef _OPENMP
@@ -579,8 +576,11 @@ LRFPFCT::AdvancePhiAtLevel (int lev, Real time, Real dt_lev, int /*iteration*/, 
         }
 
 	}//end(omp)
+	Gpu::synchronize();
+	Gpu::streamSynchronize();
   }//end(rk)
 
+	ParallelDescriptor::Barrier();
 	// ======== CFL CHECK, MOVED OUTSIDE MFITER LOOP =========
 
 	AMREX_D_TERM(Real umax = facevel[lev][0].norminf(0,0,true);,
@@ -624,4 +624,25 @@ LRFPFCT::AdvancePhiAtLevel (int lev, Real time, Real dt_lev, int /*iteration*/, 
 	}
 	}
 	ParallelDescriptor::Barrier();
+}
+
+void
+LRFPFCT::CalcAuxillaryWrapper(int lev) 
+{
+	MultiFab& S_new = phi_new[lev];
+	const int ngrow = nghost;
+	Real minp = pmin;
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    {    
+        for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {    
+            const Box& box = amrex::grow(mfi.tilebox(),ngrow);
+            Array4<Real> state = S_new[mfi].array();
+           amrex::launch(box,
+                     [=] AMREX_GPU_DEVICE (Box const& tbx) 
+                     {  CalcAuxillary(tbx, state, minp);  });  
+        }    
+    }     
 }

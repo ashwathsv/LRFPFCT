@@ -92,6 +92,8 @@ LRFPFCT::LRFPFCT ()
     // with the lev/lev-1 interface (and has grid spacing associated with lev-1)
     // therefore flux_reg[0] is never actually used in the reflux operation
     flux_reg.resize(nlevs_max+1);
+
+	ParallelDescriptor::Barrier();
 }
 
 LRFPFCT::~LRFPFCT ()
@@ -246,6 +248,8 @@ LRFPFCT::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     phi_old[lev].FillBoundary();
     phi_old[lev].FillBoundary(geom[lev].periodicity());
     FillDomBoundary(phi_old[lev],geom[lev],bcs,time);
+
+	ParallelDescriptor::Barrier();
 }
 
 // Remake an existing level using provided BoxArray and DistributionMapping and 
@@ -289,7 +293,9 @@ LRFPFCT::RemakeLevel (int lev, Real time, const BoxArray& ba,
 
     if (lev > 0 && do_reflux) {
 	flux_reg[lev].reset(new FluxRegister(ba, dm, refRatio(lev-1), lev, conscomp));
-    }    
+    }
+
+	ParallelDescriptor::Barrier();    
 }
 
 // Delete level data
@@ -368,10 +374,11 @@ void LRFPFCT::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
         amrex::launch(box,
         [=] AMREX_GPU_DEVICE (Box const& tbx)
         {
-            initdata(tbx, fab, problo, probhi, dx, probtag, ro2, ro1, p2, p1,
-                     u2, u1, v2, v1, xcm, ycm, rad_bw);
+            initdata(tbx, fab, problo, probhi, dx, prob_tag, ro2, ro1, p2, p1, u2, u1, v2, v1, xcm, ycm, rad_bw);
         });
     }
+
+	ParallelDescriptor::Barrier();
     
     FillPatch(lev, time, phi_new[lev], 0, ncomp);
     phi_new[lev].FillBoundary();
@@ -461,6 +468,7 @@ if(lev < lev_allow){
             });
     }
     }
+	ParallelDescriptor::Barrier();
     maxgradpx = gradp.norm0(0);
     maxgradpy = gradp.norm0(1);
     // Print() << "maxgradpx= " << maxgradpx << ", maxgradpy= " << maxgradpy << "\n";
@@ -487,6 +495,7 @@ if(lev < lev_allow){
 	}
     }
 }
+ParallelDescriptor::Barrier();
 }
 
 // set covered coarse cells to be the average of overlying fine cells
@@ -499,6 +508,7 @@ LRFPFCT::AverageDown ()
                             geom[lev+1], geom[lev],
                             0, phi_new[lev].nComp(), refRatio(lev));
     }
+	ParallelDescriptor::Barrier();
 }
 
 // more flexible version of AverageDown() that lets you average down across multiple levels
@@ -508,6 +518,7 @@ LRFPFCT::AverageDownTo (int crse_lev)
     amrex::average_down(phi_new[crse_lev+1], phi_new[crse_lev],
                         geom[crse_lev+1], geom[crse_lev],
                         0, phi_new[crse_lev].nComp(), refRatio(crse_lev));
+	ParallelDescriptor::Barrier();
 }
 
 // compute a new multifab by coping in phi from valid region and filling ghost cells
@@ -568,6 +579,7 @@ LRFPFCT::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
                                       mapper, bcs, 0);
         }
     }
+	ParallelDescriptor::Barrier();
 }
 
 // fill an entire multifab by interpolating from the coarser level
@@ -606,6 +618,7 @@ LRFPFCT::FillCoarsePatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp
                                      cphysbc, 0, fphysbc, 0, refRatio(lev-1),
                                      mapper, bcs, 0);
     }
+	ParallelDescriptor::Barrier();
 }
 
 // utility to copy in data from phi_old and/or phi_new into another multifab
@@ -634,6 +647,7 @@ LRFPFCT::GetData (int lev, Real time, Vector<MultiFab*>& data, Vector<Real>& dat
 	datatime.push_back(t_old[lev]);
 	datatime.push_back(t_new[lev]);
     }
+	ParallelDescriptor::Barrier();
 }
 
 // advance solution to final time
@@ -733,6 +747,10 @@ LRFPFCT::ComputeDt ()
     }
 
     dt[0] = dt_0;
+	if(dt[0] < 0.0){
+	    // Print() << "rank= " << ParallelDescriptor::MyProc() << ", dt= " << dt[0] << "\n";	
+		AMREX_ASSERT_WITH_MESSAGE(dt[0] > 0.0, "dt[0] < 0 (LRFPFCT::ComputeDt(), L752)");
+	}
     // Print() << "lev= 0" << ", dt= " << dt[0] << ", nsubsteps= " << nsubsteps[0] << "\n";
     for (int lev = 1; lev <= finest_level; ++lev) {
         dt[lev] = dt[lev-1] / nsubsteps[lev];
@@ -746,6 +764,7 @@ LRFPFCT::ComputeDt ()
     // Print() << "lev= " << lev << ", dt= " << dt[lev] << ", nsubsteps= " << nsubsteps[lev] << "\n";
     // }
     // Print() << "dt[0] = " << dt[0] << "\n";
+    ParallelDescriptor::Barrier();
 }
 
 // compute dt from CFL considerations
@@ -764,16 +783,18 @@ LRFPFCT::EstTimeStep (int lev, Real time)
        Real t_nph_predicted = time + 0.5 * dt[lev];
        DefineVelocityAtLevelDt(lev,t_nph_predicted);
     }
+	ParallelDescriptor::Barrier();
 
     for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
     {
-        Real est = facevel[lev][idim].norminf(0,0,true);
-        // Print() << "dim= " << idim << ", dx= " << dx[idim] << ", velmax= " << est << "\n";
-        dt_est = amrex::min(dt_est, dx[idim]/est);
-    }
+		Real est = facevel[lev][idim].norminf(0,0,false);
+    //  Real est = facevel[lev][idim].max(0,0,true);
+		dt_est = amrex::min(dt_est, dx[idim]/est);
+	}
 
     dt_est *= cfl;
 
+	ParallelDescriptor::Barrier();
     // Print() << "lev= " << lev << ", dt= " << dt_est << ", nsubsteps= " << nsubsteps[lev] << "\n";
 
     return dt_est;
@@ -876,24 +897,9 @@ LRFPFCT::timeStepWithSubcycling (int lev, Real time, int iteration)
         FillDomBoundary(phi_new[lev],geom[lev],bcs,time);
         phi_new[lev].FillBoundary(geom[lev].periodicity());
 
-#ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-    {
-        for (MFIter mfi(phi_new[lev],TilingIfNotGPU()); mfi.isValid(); ++mfi)
-        {
-            const Box& box = amrex::grow(mfi.tilebox(),nghost);
-            Array4<Real> state = phi_new[lev][mfi].array();
-            amrex::launch(box,
-                     [=] AMREX_GPU_DEVICE (Box const& tbx)
-                     {  CalcAuxillary(tbx, state, pmin);  });
-        }
+		CalcAuxillaryWrapper(lev);
     }
-
-    }
-
-    ParallelDescriptor::Barrier();
-    
+ ParallelDescriptor::Barrier();   
 }
 
 // Advance all the levels with the same dt
@@ -933,7 +939,7 @@ LRFPFCT::timeStepNoSubcycling (Real time, int iteration)
             amrex::Print() << "Advanced " << CountCells(lev) << " cells" << std::endl;
         }
     }
-
+	ParallelDescriptor::Barrier();
 }
 
 // get plotfile name

@@ -132,4 +132,8 @@ LRFPFCT::DefineVelocityAtLevelDt (int lev, Real time)
 
         }
     }
+//for(int idim = 0; idim < AMREX_SPACEDIM; ++idim){
+//	AMREX_ASSERT_WITH_MESSAGE(facevel[lev][idim].min(0,0,true) >= 0.0, "min < 0.0, aborting (DefineVelocityDT()");
+//}
+ParallelDescriptor::Barrier();
 }
