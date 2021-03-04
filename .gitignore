@@ -13,3 +13,4 @@ err*/
 Outputs*
 Outputs*/*
 *.visit
+postprocessing/*

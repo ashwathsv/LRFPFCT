@@ -656,6 +656,8 @@ LRFPFCT::Evolve ()
         else
             timeStepNoSubcycling(cur_time, iteration);
 
+        ParallelDescriptor::Barrier();
+
         cur_time += dt[0];
 
         // sum phi to check conservation
@@ -709,6 +711,7 @@ LRFPFCT::ComputeDt ()
     {
         dt_tmp[lev] = EstTimeStep(lev, t_new[lev]);
     }
+    ParallelDescriptor::Barrier();
     ParallelDescriptor::ReduceRealMin(&dt_tmp[0], dt_tmp.size());
 
     constexpr Real change_max = 1.1;
@@ -888,6 +891,8 @@ LRFPFCT::timeStepWithSubcycling (int lev, Real time, int iteration)
     }
 
     }
+
+    ParallelDescriptor::Barrier();
     
 }
 
