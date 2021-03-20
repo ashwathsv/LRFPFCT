@@ -44,7 +44,9 @@ LRFPFCT::LRFPFCT ()
     if (do_subcycle) {
         for (int lev = 1; lev <= max_level; ++lev) {
             nsubsteps[lev] = MaxRefRatio(lev-1);
-            // nsubsteps[lev] = 1;
+            if(do_fixeddt){
+                nsubsteps[lev] = 1;
+            }
         }
     }
 
@@ -59,17 +61,15 @@ LRFPFCT::LRFPFCT ()
 
     bcs.resize(ncomp);
 
-    // periodic boundaries
-    int bc_lo[] = {BCType::int_dir, BCType::int_dir, BCType::int_dir};
-    int bc_hi[] = {BCType::int_dir, BCType::int_dir, BCType::int_dir};
-
-#if AMREX_SPACEDIM==2
+#if AMREX_SPACEDIM>=2
     if(probtag == 1){
         for(int n = 0; n < ncomp; ++n){
             bcs[n].setLo(0, BCType::reflect_even);
-            bcs[n].setLo(1, BCType::foextrap);
             bcs[n].setHi(0, BCType::foextrap);
-            bcs[n].setHi(1, BCType::foextrap);            
+            for(int i = 1; i < AMREX_SPACEDIM; ++i){
+                bcs[n].setLo(i, BCType::foextrap);
+                bcs[n].setHi(i, BCType::foextrap);
+            }
         }
         bcs[rou].setLo(0, BCType::reflect_odd);
     }else if(probtag == 2){
@@ -128,6 +128,7 @@ LRFPFCT::ReadParameters ()
     pp.query("cfl", cfl);
     pp.query("do_reflux", do_reflux);
     pp.query("do_subcycle", do_subcycle);
+    pp.query("do_fixeddt", do_fixeddt);
     pp.query("diff1", diff1);
     }
 
@@ -323,8 +324,11 @@ void LRFPFCT::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     t_old[lev] = time - 1.e200;
 
     Real pminfrac = 0.01, rominfrac = 0.01;
-    Real rad_bw = 0.01, xcm = 0.0, ycm = 0.0; 
-    Real p2, p1, ro2, ro1, u2, u1, v2, v1;
+    Real rad_bw = 0.01;
+    Real p2, p1, ro2, ro1;
+    AMREX_D_TERM(Real xcm = 0.0;, Real ycm = 0.0;, Real zcm = 0.0;);
+    AMREX_D_TERM(Real u1;, Real v1;, Real w1;);
+    AMREX_D_TERM(Real u2;, Real v2;, Real w2;);
 
     const auto problo = Geom(lev).ProbLoArray();
     const auto probhi = Geom(lev).ProbHiArray();
@@ -336,17 +340,16 @@ void LRFPFCT::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
         pp.query("rad_blast",rad_bw);
         pp.get("probtag",prob_tag);
 
-        pp.query("xcm", xcm);
-        pp.query("ycm", ycm); 
+        AMREX_D_TERM(pp.query("xcm", xcm);, pp.query("ycm", ycm);, pp.query("zcm", zcm));
         
         pp.get("p2",p2);
         pp.get("p1",p1);
         pp.get("ro2",ro2);
         pp.get("ro1",ro1);
-        pp.get("u2",u2);
-        pp.get("u1",u1);
-        pp.get("v2",v2);
-        pp.get("v1",v1);
+
+        AMREX_D_TERM(pp.get("u2",u2);, pp.get("v2",v2);, pp.get("w2",w2));
+        AMREX_D_TERM(pp.get("u1",u1);, pp.get("v1",v1);, pp.get("w1",w1));
+
         pp.query("pminfrac",pminfrac);
         pp.query("rominfrac",rominfrac);
     }
@@ -374,7 +377,7 @@ void LRFPFCT::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
         amrex::launch(box,
         [=] AMREX_GPU_DEVICE (Box const& tbx)
         {
-            initdata(tbx, fab, problo, probhi, dx, prob_tag, ro2, ro1, p2, p1, u2, u1, v2, v1, xcm, ycm, rad_bw);
+            initdata(tbx, fab, problo, probhi, dx, prob_tag, ro2, ro1, p2, p1, AMREX_D_DECL(u2, v2, w2), AMREX_D_DECL(u1, v1, w1), AMREX_D_DECL(xcm, ycm, zcm), rad_bw);
         });
     }
 
@@ -388,7 +391,7 @@ void LRFPFCT::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     romin = rominfrac*phi_new[lev].min(ro);
 
     // if(ParallelDescriptor::MyProc() == 0){
-        Print() << "min(ro)= " << phi_new[lev].min(ro,4) << ", min(pre)= " << phi_new[lev].min(pre,4)
+        Print() << "min(ro)= " << phi_new[lev].min(ro,4) << ", max(pre)= " << phi_new[lev].max(pre,4)
         << ", min(roE)= " << phi_new[lev].min(roE,4) << ", min(mach)= " << phi_new[lev].min(mach,4) << "\n";
     // }
 
@@ -410,7 +413,7 @@ void LRFPFCT::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
 // tag all cells for refinement
 // overrides the pure virtual function in AmrCore
 void
-LRFPFCT::ErrorEst (int lev, TagBoxArray& tags, Real time, int ngrow)
+LRFPFCT::ErrorEst (int lev, TagBoxArray& tags, Real /*time*/, int /*ngrow*/)
 {
     static bool first = true;
     static Real tagfrac;
@@ -418,14 +421,14 @@ LRFPFCT::ErrorEst (int lev, TagBoxArray& tags, Real time, int ngrow)
     // only do this during the first call to ErrorEst
     if (first)
     {
-	first = false;
+	   first = false;
         // read in an array of "phierr", which is the tagging threshold
         // in this example, we tag values of "phi" which are greater than phierr
         // for that particular level
         // in subroutine state_error, you could use more elaborate tagging, such
         // as more advanced logical expressions, or gradients, etc.
-	ParmParse pp("adv");
-    pp.get("tagfrac", tagfrac);
+	   ParmParse pp("adv");
+        pp.get("tagfrac", tagfrac);
     }
 
     // if (lev >= phierr.size()) return;
@@ -435,8 +438,7 @@ LRFPFCT::ErrorEst (int lev, TagBoxArray& tags, Real time, int ngrow)
 
     MultiFab& state = phi_new[lev];
     const auto dx   = Geom(lev).CellSizeArray();
-    Real maxgradpx, maxgradpy;
-
+    AMREX_D_TERM(Real maxgradpx;, Real maxgradpy;, Real maxgradpz);
 // First, get the pressure gradients in x and y directions
 if(lev < lev_allow){
 {
@@ -466,11 +468,18 @@ if(lev < lev_allow){
             {
                 get_gradp_y(tbx, statefab, gradpfab, dx);
             });
+
+#if AMREX_SPACEDIM==3
+            amrex::launch(bx,
+            [=] AMREX_GPU_DEVICE (Box const& tbx)
+            {
+                get_gradp_z(tbx, statefab, gradpfab, dx);
+            });
+#endif
     }
     }
 	ParallelDescriptor::Barrier();
-    maxgradpx = gradp.norm0(0);
-    maxgradpy = gradp.norm0(1);
+    AMREX_D_TERM(maxgradpx = gradp.norm0(0);, maxgradpy = gradp.norm0(1);, maxgradpz = gradp.norm0(2));
     // Print() << "maxgradpx= " << maxgradpx << ", maxgradpy= " << maxgradpy << "\n";
 
 }
@@ -490,7 +499,7 @@ if(lev < lev_allow){
             amrex::launch(bx,
             [=] AMREX_GPU_DEVICE (Box const& tbx)
             {
-                state_error(tbx, tagfab, statefab, maxgradpx, maxgradpy, dx, tag_frac, tagval);
+                state_error(tbx, tagfab, statefab, AMREX_D_DECL(maxgradpx, maxgradpy, maxgradpz), dx, tag_frac, tagval);
             });
 	}
     }
@@ -524,7 +533,7 @@ LRFPFCT::AverageDownTo (int crse_lev)
 // compute a new multifab by coping in phi from valid region and filling ghost cells
 // works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
 void
-LRFPFCT::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
+LRFPFCT::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int numcomp)
 {
     if (lev == 0)
     {
@@ -536,14 +545,14 @@ LRFPFCT::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
         {
             GpuBndryFuncFab<AmrCoreFill> gpu_bndry_func(AmrCoreFill{});
             PhysBCFunct<GpuBndryFuncFab<AmrCoreFill> > physbc(geom[lev],bcs,gpu_bndry_func);
-            amrex::FillPatchSingleLevel(mf, time, smf, stime, 0, icomp, ncomp, 
+            amrex::FillPatchSingleLevel(mf, time, smf, stime, 0, icomp, numcomp, 
                                         geom[lev], physbc, 0);
         }
         else
         {
             CpuBndryFuncFab bndry_func(nullptr);  // Without EXT_DIR, we can pass a nullptr.
             PhysBCFunct<CpuBndryFuncFab> physbc(geom[lev],bcs,bndry_func);
-            amrex::FillPatchSingleLevel(mf, time, smf, stime, 0, icomp, ncomp, 
+            amrex::FillPatchSingleLevel(mf, time, smf, stime, 0, icomp, numcomp, 
                                         geom[lev], physbc, 0);
         }
     }
@@ -563,7 +572,7 @@ LRFPFCT::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
             PhysBCFunct<GpuBndryFuncFab<AmrCoreFill> > fphysbc(geom[lev],bcs,gpu_bndry_func);
 
             amrex::FillPatchTwoLevels(mf, time, cmf, ctime, fmf, ftime,
-                                      0, icomp, ncomp, geom[lev-1], geom[lev],
+                                      0, icomp, numcomp, geom[lev-1], geom[lev],
                                       cphysbc, 0, fphysbc, 0, refRatio(lev-1),
                                       mapper, bcs, 0);
         }
@@ -574,7 +583,7 @@ LRFPFCT::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
             PhysBCFunct<CpuBndryFuncFab> fphysbc(geom[lev],bcs,bndry_func);
 
             amrex::FillPatchTwoLevels(mf, time, cmf, ctime, fmf, ftime,
-                                      0, icomp, ncomp, geom[lev-1], geom[lev],
+                                      0, icomp, numcomp, geom[lev-1], geom[lev],
                                       cphysbc, 0, fphysbc, 0, refRatio(lev-1),
                                       mapper, bcs, 0);
         }
@@ -585,7 +594,7 @@ LRFPFCT::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
 // fill an entire multifab by interpolating from the coarser level
 // this comes into play when a new level of refinement appears
 void
-LRFPFCT::FillCoarsePatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
+LRFPFCT::FillCoarsePatch (int lev, Real time, MultiFab& mf, int icomp, int numcomp)
 {
     BL_ASSERT(lev > 0);
 
@@ -594,9 +603,9 @@ LRFPFCT::FillCoarsePatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp
     GetData(lev-1, time, cmf, ctime);
     Interpolater* mapper = &cell_cons_interp;
     
-    if (cmf.size() != 1) {
-	amrex::Abort("FillCoarsePatch: how did this happen?");
-    }
+ //    if (cmf.size() != 1) {
+	// amrex::Abort("FillCoarsePatch: how did this happen?");
+ //    }
 
     if(Gpu::inLaunchRegion())
     {
@@ -604,7 +613,7 @@ LRFPFCT::FillCoarsePatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp
         PhysBCFunct<GpuBndryFuncFab<AmrCoreFill> > cphysbc(geom[lev-1],bcs,gpu_bndry_func);
         PhysBCFunct<GpuBndryFuncFab<AmrCoreFill> > fphysbc(geom[lev],bcs,gpu_bndry_func);
 
-        amrex::InterpFromCoarseLevel(mf, time, *cmf[0], 0, icomp, ncomp, geom[lev-1], geom[lev],
+        amrex::InterpFromCoarseLevel(mf, time, *cmf[0], 0, icomp, numcomp, geom[lev-1], geom[lev],
                                      cphysbc, 0, fphysbc, 0, refRatio(lev-1),
                                      mapper, bcs, 0);
     }
@@ -614,7 +623,7 @@ LRFPFCT::FillCoarsePatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp
         PhysBCFunct<CpuBndryFuncFab> cphysbc(geom[lev-1],bcs,bndry_func);
         PhysBCFunct<CpuBndryFuncFab> fphysbc(geom[lev],bcs,bndry_func);
 
-        amrex::InterpFromCoarseLevel(mf, time, *cmf[0], 0, icomp, ncomp, geom[lev-1], geom[lev],
+        amrex::InterpFromCoarseLevel(mf, time, *cmf[0], 0, icomp, numcomp, geom[lev-1], geom[lev],
                                      cphysbc, 0, fphysbc, 0, refRatio(lev-1),
                                      mapper, bcs, 0);
     }
@@ -674,11 +683,9 @@ LRFPFCT::Evolve ()
 
         cur_time += dt[0];
 
-        // sum phi to check conservation
-        // Real sum_phi = phi_new[0].sum();
-
         amrex::Print() << "Coarse STEP " << step+1 << " ends." << " TIME = " << cur_time
-                       << " DT = " << dt[0] << " min(pre) = " << phi_new[0].min(pre,4) << std::endl;
+                       << " DT = " << dt[0] << " max(pre) = " << phi_new[0].max(pre,4) << 
+                       ", max(mach)= " << phi_new[0].max(mach,4) << std::endl;
 
         // sync up time
         for (lev = 0; lev <= finest_level; ++lev) {
@@ -707,7 +714,6 @@ LRFPFCT::Evolve ()
 
     if (chk_int > 0) {
        WriteCheckpointFile();
-       // WriteErrFile();
     }
 
     if(plot_int > 0){
@@ -725,7 +731,6 @@ LRFPFCT::ComputeDt ()
     {
         dt_tmp[lev] = EstTimeStep(lev, t_new[lev]);
     }
-    ParallelDescriptor::Barrier();
     ParallelDescriptor::ReduceRealMin(&dt_tmp[0], dt_tmp.size());
 
     constexpr Real change_max = 1.1;
@@ -733,7 +738,6 @@ LRFPFCT::ComputeDt ()
     int n_factor = 1;
 
     for (int lev = 0; lev <= finest_level; ++lev) {
-        // Print() << "lev= " << lev << ", dt= " << dt[lev] << "\n";
         dt_tmp[lev] = std::min(dt_tmp[lev], change_max*dt[lev]);
         n_factor *= nsubsteps[lev];
         dt_0 = std::min(dt_0, n_factor*dt_tmp[lev]);
@@ -747,23 +751,23 @@ LRFPFCT::ComputeDt ()
     }
 
     dt[0] = dt_0;
-	if(dt[0] < 0.0){
-	    // Print() << "rank= " << ParallelDescriptor::MyProc() << ", dt= " << dt[0] << "\n";	
-		AMREX_ASSERT_WITH_MESSAGE(dt[0] > 0.0, "dt[0] < 0 (LRFPFCT::ComputeDt(), L752)");
+	if(dt[0] < 0.0){	
+		AMREX_ASSERT_WITH_MESSAGE(dt[0] > 0.0, "dt[0] < 0 (LRFPFCT::ComputeDt())");
 	}
     // Print() << "lev= 0" << ", dt= " << dt[0] << ", nsubsteps= " << nsubsteps[0] << "\n";
     for (int lev = 1; lev <= finest_level; ++lev) {
         dt[lev] = dt[lev-1] / nsubsteps[lev];
     }
 
-    // for (int lev = 0; lev <= finest_level; ++lev) {
-    //     dt[lev] = dt[finest_level];
-    //     if(lev_allow < finest_level){
-    //         dt[lev] = dt[lev_allow];
-    // }
-    // Print() << "lev= " << lev << ", dt= " << dt[lev] << ", nsubsteps= " << nsubsteps[lev] << "\n";
-    // }
-    // Print() << "dt[0] = " << dt[0] << "\n";
+    if(do_subcycle && do_fixeddt){
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            dt[lev] = dt[finest_level];
+            if(lev_allow < finest_level){
+                dt[lev] = dt[lev_allow];
+            }
+        }           
+    }
+
     ParallelDescriptor::Barrier();
 }
 
@@ -795,7 +799,6 @@ LRFPFCT::EstTimeStep (int lev, Real time)
     dt_est *= cfl;
 
 	ParallelDescriptor::Barrier();
-    // Print() << "lev= " << lev << ", dt= " << dt_est << ", nsubsteps= " << nsubsteps[lev] << "\n";
 
     return dt_est;
 }
@@ -835,9 +838,12 @@ LRFPFCT::timeStepWithSubcycling (int lev, Real time, int iteration)
                 for (int k = old_finest+1; k <= finest_level; ++k) {
                     dt[k] = dt[k-1] / MaxRefRatio(k-1);
                 }
-                // for (int k = 0; k <= finest_level; ++k){
-                //     dt[k] = dt[finest_level];
-                // }
+                if(do_fixeddt){
+                    for (int k = 0; k <= finest_level; ++k){
+                        dt[k] = dt[finest_level];
+                    }                    
+                }
+
             }
         }
     }
@@ -853,7 +859,7 @@ LRFPFCT::timeStepWithSubcycling (int lev, Real time, int iteration)
     t_old[lev] = t_new[lev];
     t_new[lev] += dt[lev];
 
-    Real t_nph = t_old[lev] + 0.5*dt[lev]; 
+    // Real t_nph = t_old[lev] + 0.5*dt[lev]; 
 
     // DefineVelocityAtLevel(lev, t_nph);
     AdvancePhiAtLevel(lev, time, dt[lev], iteration, nsubsteps[lev]);
@@ -885,6 +891,8 @@ LRFPFCT::timeStepWithSubcycling (int lev, Real time, int iteration)
             flux_reg[lev+1]->Reflux(phi_new[lev], 1.0, 0, 0, conscomp, geom[lev]);
             
             ParallelDescriptor::Barrier();
+
+            CalcAuxillaryWrapper(lev);
             phi_new[lev].FillBoundary();
             FillDomBoundary(phi_new[lev],geom[lev],bcs,time);
             phi_new[lev].FillBoundary(geom[lev].periodicity());
@@ -893,11 +901,11 @@ LRFPFCT::timeStepWithSubcycling (int lev, Real time, int iteration)
         AverageDownTo(lev); // average lev+1 down to lev
         ParallelDescriptor::Barrier();
 
-        phi_new[lev].FillBoundary();
-        FillDomBoundary(phi_new[lev],geom[lev],bcs,time);
-        phi_new[lev].FillBoundary(geom[lev].periodicity());
+        CalcAuxillaryWrapper(lev);
 
-		CalcAuxillaryWrapper(lev);
+        phi_new[lev].FillBoundary();
+        phi_new[lev].FillBoundary(geom[lev].periodicity());
+        FillDomBoundary(phi_new[lev],geom[lev],bcs,time);    
     }
  ParallelDescriptor::Barrier();   
 }
@@ -964,7 +972,12 @@ LRFPFCT::PlotFileMF () const
 Vector<std::string>
 LRFPFCT::PlotFileVarNames () const
 {
+#if AMREX_SPACEDIM==2
     return {"ro","rou","rov","roE","pre","Mach"};
+#endif
+#if AMREX_SPACEDIM==3
+    return {"ro","rou","rov","row","roE","pre","Mach"};
+#endif
 }
 
 // write plotfile to disk
@@ -976,6 +989,7 @@ LRFPFCT::WritePlotFile () const
     const auto& varnames = PlotFileVarNames();
     
     amrex::Print() << "Writing plotfile " << plotfilename << "\n";
+    amrex::Print() << "ncomp= " << mf[0]->nComp() << ", varsize= " << varnames.size() << "\n";
 
     amrex::WriteMultiLevelPlotfile(plotfilename, finest_level+1, mf, varnames,
 				   Geom(), t_new[0], istep, refRatio());

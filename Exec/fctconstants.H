@@ -18,7 +18,7 @@
 #define roE 4
 #define pre 5
 #define mac 6
-#define ccomp 5
+#define conscomp 5
 #endif
 #define gamma   1.4
 #define c1		1.0/(gamma-1.0)
@@ -39,10 +39,13 @@
 #define sixth   0.16666666666666667
 // #define fifth   BL_REAL(0.2)
 #define fourth  0.25
-#define third   0.33333333333333333
+#define third   0.33333333333333333333
 #define half    0.5
-#define one12	0.08333333333333333
+#define one12	0.08333333333333333333
 #define epsilon		1E-16
+#define ninth 0.111111111111111111111111
+#define eighth 0.125
+#define tenth 0.1
 // #define two3rd  BL_REAL(0.66666666666666667)
 // #define Pi      BL_REAL(3.1415926535897932)
 

@@ -20,19 +20,19 @@ void CalcAuxillary(amrex::Box const& bx, amrex::Array4<amrex::Real> const& state
                 Real velmod =  sqrt( pow(state(i,j,k,rou),2.0) + pow(state(i,j,k,rov),2.0) )/state(i,j,k,ro); 
 #endif
 #if AMREX_SPACEDIM==3
-                Real velmod =  sqrt( pow(state(i,j,k,rou),2.0) + pow(a(i,j,k,rov),2.0) + pow(state(i,j,k,row),2.0) )/state(i,j,k,ro);
+                Real velmod =  sqrt( pow(state(i,j,k,rou),2.0) + pow(state(i,j,k,rov),2.0) + pow(state(i,j,k,row),2.0) )/state(i,j,k,ro);
 #endif
                 state(i,j,k,pre) = (gamma-1)*( state(i,j,k,roE) -  half*(state(i,j,k,ro)*pow(velmod,2.0)));
                 if(state(i,j,k,pre) < pmin){
                     state(i,j,k,pre) = pmin;
                     state(i,j,k,roE) = c1*state(i,j,k,roE) + half*(state(i,j,k,ro)*pow(velmod,2.0));
-                }
 #if AMREX_SPACEDIM==2
-                velmod =  sqrt( pow(state(i,j,k,rou),2.0) + pow(state(i,j,k,rov),2.0) )/state(i,j,k,ro); 
+                    velmod =  sqrt( pow(state(i,j,k,rou),2.0) + pow(state(i,j,k,rov),2.0) )/state(i,j,k,ro); 
 #endif
 #if AMREX_SPACEDIM==3
-                velmod =  sqrt( pow(state(i,j,k,rou),2.0) + pow(a(i,j,k,rov),2.0) + pow(state(i,j,k,row),2.0) )/state(i,j,k,ro);
+                    velmod =  sqrt( pow(state(i,j,k,rou),2.0) + pow(state(i,j,k,rov),2.0) + pow(state(i,j,k,row),2.0) )/state(i,j,k,ro);
 #endif
+                }
                 Real ss = sqrt(gamma*state(i,j,k,pre)/state(i,j,k,ro));
                 state(i,j,k,mac) = velmod/ss;
             }

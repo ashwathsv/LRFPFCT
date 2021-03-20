@@ -187,6 +187,9 @@ private:
     // do we subcycle in time?
     int do_subcycle = 1;
 
+    // do we have a fixed timestep dt with subcycle in time?
+    int do_fixeddt = 1;   
+
     // plotfile prefix and frequency
     std::string plot_file {"plt"};
     int plot_int = -1;

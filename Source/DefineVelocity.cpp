@@ -13,7 +13,7 @@ LRFPFCT::DefineVelocityAllLevels (Real time)
 }
 
 void
-LRFPFCT::DefineVelocityAtLevel (int lev, Real time)
+LRFPFCT::DefineVelocityAtLevel (int lev, Real /*time*/)
 {
     MultiFab& state = phi_new[lev];
     const int ngrow = nghost;
@@ -33,7 +33,7 @@ LRFPFCT::DefineVelocityAtLevel (int lev, Real time)
 
             AMREX_D_TERM(const Box& ngbxx = amrex::grow(mfi.nodaltilebox(0),ngrow);,
                          const Box& ngbxy = amrex::grow(mfi.nodaltilebox(1),ngrow);,
-                         const Box& ngbxz = amrex::grow(mfi.nodaltilebox(2),ngrow););
+                         const Box& ngbxz = amrex::grow(mfi.nodaltilebox(2),ngrow));
             
             // Print(myproc) << "rank= " << myproc << "lo(x)= " << ngbxx.smallEnd(0) << 
             // " " << ngbxx.smallEnd(1) << ", hi(x)= " << ngbxx.bigEnd(0) << " " << ngbxx.bigEnd(1) << "\n";
@@ -56,7 +56,7 @@ LRFPFCT::DefineVelocityAtLevel (int lev, Real time)
             // Print(myproc) << "rank= " << myproc << "lo(vely)= " << lbound(vel[1]) << ", hi(vely)= " << ubound(vel[1]) << "\n";
 
             Array4<Real> fab = state[mfi].array();
-            GeometryData geomdata = geom[lev].data();
+            // GeometryData geomdata = geom[lev].data();
 
             amrex::ParallelFor(AMREX_D_DECL(ngbxx,ngbxy,ngbxz),
                  AMREX_D_DECL(
@@ -84,10 +84,9 @@ LRFPFCT::DefineVelocityAtLevel (int lev, Real time)
 }
 
 void
-LRFPFCT::DefineVelocityAtLevelDt (int lev, Real time)
+LRFPFCT::DefineVelocityAtLevelDt (int lev, Real /*time*/)
 {
     MultiFab& state = phi_new[lev];
-    const int ngrow = nghost;
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -112,7 +111,6 @@ LRFPFCT::DefineVelocityAtLevelDt (int lev, Real time)
                                                                       facevel[lev][2].array(mfi)) };
 
             Array4<Real> fab = state[mfi].array();
-            GeometryData geomdata = geom[lev].data();
 
             amrex::ParallelFor
                 (AMREX_D_DECL(ngbxx,ngbxy,ngbxz),

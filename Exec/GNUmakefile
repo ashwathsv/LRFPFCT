@@ -15,7 +15,7 @@ COMP	   = gnu
 #LIBRARIES += -lomp
 
 USE_MPI    = TRUE
-# USE_OMP    = FALSE
+USE_OMP    = FALSE
 # USE_OMP    = TRUE 
 USE_CUDA   = FALSE
 

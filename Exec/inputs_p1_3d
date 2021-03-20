@@ -1,6 +1,5 @@
-max_step  = 500
-stop_time = 1.761958
-max_rk = 2
+max_step  = 200
+stop_time = 0.000761958
 
 #	COMPONENTS
 max_rk = 2
@@ -10,25 +9,24 @@ geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart
 # Domain size (m)
 geometry.prob_lo     =  0.0  0.0  0.0 
-geometry.prob_hi     =  0.1  0.1  0.1
-amr.n_cell           =  32  32  16
-
+geometry.prob_hi     =  0.05  0.05  0.05
+amr.n_cell           =  8  8  8
 # VERBOSITY
 amr.v              = 1       # verbosity in Amr
 amr.n_error_buf	   = 4
 amr.grid_eff	   = 0.7
 
 # REFINEMENT
-amr.max_level       = 0       # maximum level number allowed
+amr.max_level       = 1      # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.blocking_factor = 8       # block factor in grid generation
-amr.max_grid_size   = 32
+amr.max_grid_size   = 8
 
-amr.regrid_int      = 2       # how often to regrid
-amr.allow_level		= 0
+amr.regrid_int      = 4       # how often to regrid
+amr.allow_level		= 1
 
 # TIME STEP CONTROL
-adv.cfl            = 0.4     # cfl number for hyperbolic system
+adv.cfl            = 0.2     # cfl number for hyperbolic system
                              # In this test problem, the velocity is
 			     # time-dependent.  We could use 0.9 in
 			     # the 3D test, but need to use 0.7 in 2D
@@ -36,18 +34,18 @@ adv.cfl            = 0.4     # cfl number for hyperbolic system
 
 adv.do_reflux = 1
 adv.diff1 = 1.0
+adv.do_subcycle = 1
+adv.do_fixeddt = 0
 
 # Tagging
-adv.tagfrac = 0.2 		#	must be < 1 
-adv.do_subcycle    = 1
-adv.do_fixeddt = 0 
+adv.tagfrac = 0.3 		#	must be < 1 
 
 # PLOTFILES
-amr.plot_file  = Outputs_P1L0/plt    # root name of plot file
-amr.plot_int   = 40    # number of timesteps between plot files
+amr.plot_file  = Outputs3D_P1L1/plt    # root name of plot file
+amr.plot_int   = 10   # number of timesteps between plot files
 
 # CHECKPOINT
-amr.chk_file = Outputs_P1L0/chk      # root name of checkpoint file
+amr.chk_file = Outputs3D_P1L1/chk      # root name of checkpoint file
 amr.chk_int  = -1      # number of timesteps between checkpoint files
 #amr.restart  = Outputs3D_P1L0/chk0000100 # restart from this checkpoint file
 
@@ -64,13 +62,14 @@ prob.u2		 	  = 0.0				#	Centre of isentropic vortex (y-coordinate), in metres
 prob.u1		 	  = 0.0				#	Centre of isentropic vortex (y-coordinate), in metres
 prob.v2		  	  = 0.0				#	Centre of isentropic vortex (y-coordinate), in metres
 prob.v1		 	  = 0.0				#	Centre of isentropic vortex (y-coordinate), in metres
+prob.w2		 	  = 0.0				#	Centre of isentropic vortex (z-coordinate), in metres
+prob.w1		 	  = 0.0				#	Centre of isentropic vortex (z-coordinate), in metres
 prob.rad_blast	  = 0.01
-prob.pminfrac	  = 0.0001
-prob.rominfrac	  = 0.0001
 
 #	PROBE DETAILS
-aux.nprobes		  = 0
-#aux.iprobes		  = 7 15 31
-#aux.jprobes       = 31 31 31
-aux.iprobes		  = 31 63 127
-aux.jprobes       = 127 127 127
+aux.nprobes		= 0
+#aux.iprobes	= 7 15 31
+#aux.jprobes    = 31 31 31
+aux.iprobes		= 4 8 12
+aux.jprobes     = 4 8 12
+aux.kprobes     = 4 8 12

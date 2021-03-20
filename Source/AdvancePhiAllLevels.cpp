@@ -120,7 +120,6 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
                 AMREX_D_TERM(Array4<Real> fabcx  = Sconvx[mfi].array();,
                              Array4<Real> fabcy  = Sconvy[mfi].array();,
                              Array4<Real> fabcz  = Sconvz[mfi].array(););
-                GeometryData geomdata = geom[lev].data();
             // Define integers for lower and upper bounds of fabnew array 
                 AMREX_D_TERM(int philox = lbound(fabnew).x;, int philoy = lbound(fabnew).y;, int philoz = lbound(fabnew).z;);
                 AMREX_D_TERM(int phihix = ubound(fabnew).x;, int phihiy = ubound(fabnew).y;, int phihiz = ubound(fabnew).z;);
@@ -198,9 +197,9 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
                      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
                      {  flux_y_bc(i, j, k, n, flx[1], fy_loy, fy_hiy);   });
 #if AMREX_SPACEDIM==3
-                amrex::ParallelFor(ngbxz, conscomp,
-                     [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-                     {  flux_z_bc(i, j, k, n, flx[2], fz_loz, fz_hiz);   });
+                // amrex::ParallelFor(ngbxz, conscomp,
+                //      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+                //      {  flux_z_bc(i, j, k, n, flx[2], fz_loz, fz_hiz);   });
 #endif
                 if(rk > 1){
                     amrex::ParallelFor(AMREX_D_DECL(ngbxx,ngbxy,ngbxz),
@@ -246,8 +245,8 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
                 }
                 GpuArray<Array4<Real>, AMREX_SPACEDIM> fltx{ AMREX_D_DECL( fluxd[0].array(),
                                                             fluxd[1].array(), fluxd[2].array()) };
-                AMREX_D_TERM(int ftx_lox=lbound(fltx[0]).x;, int fty_loy=lbound(fltx[1]).y;, int ftz_loz=lbound(fltx[2]).z;);
-                AMREX_D_TERM(int ftx_hix=ubound(fltx[0]).x;, int fty_hiy=ubound(fltx[1]).y;, int ftz_hiz=ubound(fltx[2]).z;);
+                // AMREX_D_TERM(int ftx_lox=lbound(fltx[0]).x;, int fty_loy=lbound(fltx[1]).y;, int ftz_loz=lbound(fltx[2]).z;);
+                // AMREX_D_TERM(int ftx_hix=ubound(fltx[0]).x;, int fty_hiy=ubound(fltx[1]).y;, int ftz_hiz=ubound(fltx[2]).z;);
 
 // compute diffusive fluxes in the coordinate directions
                 amrex::ParallelFor(ngbxx, conscomp,
@@ -257,9 +256,9 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
                      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
                      {  compute_diff_flux_y(i, j, k, n, fltx[1], vel[1], fabold, fy_loy, fy_hiy, coeff*dtdy); });
 #if AMREX_SPACEDIM==3
-                amrex::ParallelFor(ngbxz,
-                     [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-                     {  compute_diff_flux_z(i, j, k, n, fltx[2], vel[2], fabold, fz_loz, fz_hiz, coeff*dtdz); });
+                // amrex::ParallelFor(ngbxz,
+                //      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+                //      {  compute_diff_flux_z(i, j, k, n, fltx[2], vel[2], fabold, fz_loz, fz_hiz, coeff*dtdz); });
 #endif
 
                 amrex::ParallelFor(ngbxx, conscomp,
@@ -269,9 +268,9 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
                      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
                      {  flux_y_bc(i, j, k, n, fltx[1], fy_loy, fy_hiy);   });
 #if AMREX_SPACEDIM==3
-                amrex::ParallelFor(ngbxz, conscomp,
-                     [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-                     {  flux_z_bc(i, j, k, n, fltx[2], fz_loz, fz_hiz);   });
+                // amrex::ParallelFor(ngbxz, conscomp,
+                //      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+                //      {  flux_z_bc(i, j, k, n, fltx[2], fz_loz, fz_hiz);   });
 #endif
 
 // update conserved variables for diffusion step 
@@ -286,7 +285,7 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
                     amrex::ParallelFor(amrex::grow(bx,ngrow), conscomp,
                         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
                         {  phidiff_bc(i, j, k, n, fabnew, AMREX_D_DECL(philox, philoy, philoz), 
-                            AMREX_D_DECL(phihix, phihiy, phihz)); });
+                            AMREX_D_DECL(phihix, phihiy, phihiz)); });
                 }            
 
                 // add diffusive flux for scaling (shift this to rk = 2 step)
@@ -353,8 +352,8 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
                                                             facevel[lev][1].array(mfi),facevel[lev][2].array(mfi)) };
 
 
-                AMREX_D_TERM(int vx_lox = lbound(vel[0]).x;, int vy_loy = lbound(vel[1]).y;, int vz_loz = lbound(vel[2]).z);
-                AMREX_D_TERM(int vx_hix = ubound(vel[0]).x;, int vy_hiy = ubound(vel[1]).y;, int vz_hiz = ubound(vel[2]).z);
+                // AMREX_D_TERM(int vx_lox = lbound(vel[0]).x;, int vy_loy = lbound(vel[1]).y;, int vz_loz = lbound(vel[2]).z);
+                // AMREX_D_TERM(int vx_hix = ubound(vel[0]).x;, int vy_hiy = ubound(vel[1]).y;, int vz_hiz = ubound(vel[2]).z);
                   
                 Elixir fluxeli2[BL_SPACEDIM];
                 for (int i = 0; i < BL_SPACEDIM ; i++) 
@@ -380,14 +379,14 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
                 // compute anti-diffusive fluxes in the coordinate directions
                 amrex::ParallelFor(ngbxx, conscomp,
                      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-                     {  compute_ad_flux_x(i, j, k, n, fltx[0], vel[0], vel[1], fabold, fabcx, ftx_lox, ftx_hix, ftx_loy, ftx_hiy, coeff*dtdx, coeff*dtdy, diffc); });
+                     {  compute_ad_flux_x(i, j, k, n, fltx[0], vel[0], fabold, fabcx, ftx_lox, ftx_hix, coeff*dtdx, diffc); });
                 amrex::ParallelFor(ngbxy, conscomp,
                      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-                     {  compute_ad_flux_y(i, j, k, n, fltx[1], vel[0], vel[1], fabold, fabcy, fty_lox, fty_hix, fty_loy, fty_hiy, coeff*dtdx, coeff*dtdy, diffc); });
+                     {  compute_ad_flux_y(i, j, k, n, fltx[1], vel[1], fabold, fabcy, fty_loy, fty_hiy, coeff*dtdy, diffc); });
 #if AMREX_SPACEDIM==3
-                amrex::ParallelFor(ngbxz,
-                     [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-                     {  compute_ad_flux_z(i, j, k, n, fltx[2], vel[2], fabold, fabcz, ftz_loz, ftz_hiz, coeff*dtdz); });
+                // amrex::ParallelFor(ngbxz,
+                //      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+                //      {  compute_ad_flux_z(i, j, k, n, fltx[2], vel[2], fabold, fabcz, ftz_loz, ftz_hiz, coeff*dtdz); });
 #endif
                 amrex::ParallelFor(ngbxx, conscomp,
                      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -421,9 +420,9 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
                      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
                      {  compute_diff_flux_y(i, j, k, n, fldx[1], vel[1], fabold, fdy_loy, fdy_hiy, coeff*dtdy); });
 #if AMREX_SPACEDIM==3
-                amrex::ParallelFor(ngbxz, conscomp
-                     [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-                     {  compute_diff_flux_z(i, j, k, n, fldx[2], vel[2], fabold, fdz_loz, fdz_hiz, coeff*dtdz); });
+                // amrex::ParallelFor(ngbxz, conscomp
+                //      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+                //      {  compute_diff_flux_z(i, j, k, n, fldx[2], vel[2], fabold, fdz_loz, fdz_hiz, coeff*dtdz); });
 #endif
                 amrex::ParallelFor(ngbxx, conscomp,
                      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -432,9 +431,9 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
                      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
                      {  flux_y_bc(i, j, k, n, fldx[1], fdy_loy, fdy_hiy);   });
 #if AMREX_SPACEDIM==3
-                amrex::ParallelFor(ngbxz, conscomp,
-                     [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-                     {  flux_z_bc(i, j, k, n, fldx[2], fdz_loz, fdz_hiz);   });
+                // amrex::ParallelFor(ngbxz, conscomp,
+                //      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+                //      {  flux_z_bc(i, j, k, n, fldx[2], fdz_loz, fdz_hiz);   });
 #endif
 
 // update Sconvx, Sconvy and Sconvz to partially diffused values
@@ -475,9 +474,9 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
                      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
                      {  prelimit_ad_flux_y(i, j, k, n, fltx[1], fabcy, AMREX_D_DECL(ilo,jlo,klo),AMREX_D_DECL(ihi,jhi,khi)); });
 #if AMREX_SPACEDIM==3
-                amrex::ParallelFor(ngbxz,
-                     [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-                     {  prelimit_ad_flux_z(i, j, k, n, fltx[2], fabcz, fz_loz, fz_hiz); });
+                // amrex::ParallelFor(ngbxz,
+                //      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+                //      {  prelimit_ad_flux_z(i, j, k, n, fltx[2], fabcz, fz_loz, fz_hiz); });
 #endif
                 if(lev > 0){
                     amrex::ParallelFor(ngbxx, conscomp,
@@ -506,11 +505,11 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
 // compute the corrected fluxes before updating the solution
                 // corrected fluxes in x-direction
                 if(lev == 0){   const Box& tmpbox0 = mfi.tilebox();
-                    AMREX_D_TERM(ilo = lbound(tmpbox0).x;, jlo = lbound(tmpbox0).y;, lbound(tmpbox0).z); 
-                    AMREX_D_TERM(ihi = ubound(tmpbox0).x+1;, jhi = lbound(tmpbox0).y;, ubound(tmpbox0).z); }
+                    AMREX_D_TERM(ilo = lbound(tmpbox0).x;, jlo = lbound(tmpbox0).y;, klo = lbound(tmpbox0).z); 
+                    AMREX_D_TERM(ihi = ubound(tmpbox0).x+1;, jhi = lbound(tmpbox0).y;, khi = ubound(tmpbox0).z); }
                 else{   const Box& tmpbox1 = amrex::grow(mfi.tilebox(),ngrow-1);
-                    AMREX_D_TERM(ilo = lbound(tmpbox1).x+1;, jlo = lbound(tmpbox1).y;, lbound(tmpbox1).z); 
-                    AMREX_D_TERM(ihi = ubound(tmpbox1).x;, jhi = lbound(tmpbox1).y;, ubound(tmpbox1).z);   }
+                    AMREX_D_TERM(ilo = lbound(tmpbox1).x+1;, jlo = lbound(tmpbox1).y;, klo = lbound(tmpbox1).z); 
+                    AMREX_D_TERM(ihi = ubound(tmpbox1).x;, jhi = lbound(tmpbox1).y;, khi = ubound(tmpbox1).z);   }
                 amrex::ParallelFor(ngbxx, conscomp,
                      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
                      {  corrected_flux_x(i, j, k, n, fltx[0], arrin, arrou, AMREX_D_DECL(ilo,jlo,klo), AMREX_D_DECL(ihi,jhi,khi)); });
@@ -523,11 +522,11 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
 
                 // corrected fluxes in y-direction
                 if(lev == 0){   const Box& bxxtemp0 = mfi.tilebox();
-                    AMREX_D_TERM(ilo = lbound(bxxtemp0).x;, jlo = lbound(bxxtemp0).y;, lbound(bxxtemp0).z); 
-                    AMREX_D_TERM(ihi = ubound(bxxtemp0).x;, jhi = lbound(bxxtemp0).y+1;, ubound(bxxtemp0).z); }
+                    AMREX_D_TERM(ilo = lbound(bxxtemp0).x;, jlo = lbound(bxxtemp0).y;, klo = lbound(bxxtemp0).z); 
+                    AMREX_D_TERM(ihi = ubound(bxxtemp0).x;, jhi = lbound(bxxtemp0).y+1;, khi = ubound(bxxtemp0).z); }
                 else{   const Box& bxxtemp1 = amrex::grow(mfi.tilebox(),ngrow-1);
-                    AMREX_D_TERM(ilo = lbound(bxxtemp1).x;, jlo = lbound(bxxtemp1).y+1;, lbound(bxxtemp1).z); 
-                    AMREX_D_TERM(ihi = ubound(bxxtemp1).x;, jhi = lbound(bxxtemp1).y;, ubound(bxxtemp1).z);   }
+                    AMREX_D_TERM(ilo = lbound(bxxtemp1).x;, jlo = lbound(bxxtemp1).y+1;, klo = lbound(bxxtemp1).z); 
+                    AMREX_D_TERM(ihi = ubound(bxxtemp1).x;, jhi = lbound(bxxtemp1).y;, khi = ubound(bxxtemp1).z);   }
                 amrex::ParallelFor(ngbxy, conscomp,
                      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
                      {  corrected_flux_y(i, j, k, n, fltx[1], arrin, arrou, AMREX_D_DECL(ilo,jlo,klo), AMREX_D_DECL(ihi,jhi,khi)); });
@@ -564,10 +563,10 @@ LRFPFCT::AdvancePhiAllLevels (Real time, Real dt_lev, int /*iteration*/)
                 if(rk == rk_max){
                     amrex::ParallelFor(mfi.nodaltilebox(0), conscomp,
                         [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                        { scale_x_flux(i, j, k, n, fluxx[0], fltx[0], 1.0/dtdx, dt_lev, dx[1]); });
+                        { scale_x_flux(i, j, k, n, fluxx[0], fltx[0], 1.0/dtdx, dt_lev, AMREX_D_DECL(dx[0], dx[1], dx[2])); });
                     amrex::ParallelFor(mfi.nodaltilebox(1), conscomp,
                         [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                        { scale_y_flux(i, j, k, n, fluxx[1], fltx[1], 1.0/dtdy, dt_lev, dx[0]); });
+                        { scale_y_flux(i, j, k, n, fluxx[1], fltx[1], 1.0/dtdy, dt_lev, AMREX_D_DECL(dx[0], dx[1], dx[2])); });
 
                     // if(do_reflux){
                     //     for(int dir = 0; dir < BL_SPACEDIM; dir++){
